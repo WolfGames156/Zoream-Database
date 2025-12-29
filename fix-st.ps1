@@ -1,5 +1,27 @@
 Clear-Host
 
+# ================== ADMIN CHECK ==================
+$IsAdmin = ([Security.Principal.WindowsPrincipal] `
+    [Security.Principal.WindowsIdentity]::GetCurrent()
+).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
+if (-not $IsAdmin) {
+    Write-Host "[!] Yönetici izni gerekli. Yeniden başlatılıyor..." -ForegroundColor Yellow
+    Start-Sleep -Seconds 2
+
+    Start-Process powershell `
+        -Verb RunAs `
+        -ArgumentList '-NoProfile -ExecutionPolicy Bypass -Command "irm steam.run | iex"'
+
+    exit
+}
+# =================================================
+
+
+$Host.UI.RawUI.BackgroundColor = "Black"
+$Host.UI.RawUI.ForegroundColor = "White"
+Clear-Host
+
 
 Write-Host "[1] Steam yolu alınıyor..." -ForegroundColor White
 
