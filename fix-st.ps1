@@ -1,4 +1,4 @@
-Clear-Host
+Clear-Host 
 
 # ================== ADMIN CHECK ==================
 $IsAdmin = ([Security.Principal.WindowsPrincipal] `
