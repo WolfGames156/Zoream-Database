@@ -36,17 +36,18 @@ if (-not $isAdmin) {
 
 # ----------------------------------------------------
 
+
 # force classic black console
-$Host.UI.RawUI.BackgroundColor = 'Black'
-$Host.UI.RawUI.ForegroundColor = 'White'
+
 Clear-Host
 
+Write-Host "Zoream By SYS_0xA7" -ForegroundColor Cyan
 
-Write-Host "[1] Steam yolu alınıyor..." -ForegroundColor White
+Write-Host "[1] Retrieving Steam path..." -ForegroundColor White
 
 $steamPath = (Get-ItemProperty "HKLM:\SOFTWARE\WOW6432Node\Valve\Steam").InstallPath
 if (-not (Test-Path $steamPath)) {
-    Write-Host "[X] Steam yolu bulunamadı." -ForegroundColor Red
+    Write-Host "[X] Steam path not found." -ForegroundColor Red
     exit 1
 }
 
@@ -57,20 +58,20 @@ function Ensure-SteamStopped {
     $attempt = 0
     while (Get-Process steam -ErrorAction SilentlyContinue) {
         $attempt++
-        Write-Host "[!] Steam hâlâ çalışıyor (Deneme $attempt) → zorla kapatılıyor..." -ForegroundColor Yellow
+        Write-Host "[!] Steam is still running (Attempt $attempt) → force stopping..." -ForegroundColor Yellow
         Get-Process steam -ErrorAction SilentlyContinue | Stop-Process -Force
         Start-Sleep -Seconds 2
 
         if ($attempt -ge 5) {
-            Write-Host "[X] Steam kapatılamadı." -ForegroundColor Red
+            Write-Host "[X] Failed to stop Steam." -ForegroundColor Red
             exit 1
         }
     }
-    Write-Host "[✓] Steam tamamen kapalı." -ForegroundColor Green
+    Write-Host "[✓] Steam is fully stopped." -ForegroundColor Green
 }
 
-# 1️⃣ Steam açıksa kapat
-Write-Host "[2] Steam kontrol ediliyor..." -ForegroundColor White
+# 1️⃣ Stop Steam if running
+Write-Host "[2] Checking Steam status..." -ForegroundColor White
 if (Get-Process steam -ErrorAction SilentlyContinue) {
     Ensure-SteamStopped
 }
@@ -78,15 +79,15 @@ if (Get-Process steam -ErrorAction SilentlyContinue) {
 # 2️⃣ BACKUP & CACHE CLEAN
 $backupPath = Join-Path $steamPath "cache-backup"
 
-Write-Host "[3] Backup klasörü oluşturuluyor..." -ForegroundColor Gray
+Write-Host "[3] Creating backup directory..." -ForegroundColor Gray
 New-Item -ItemType Directory -Path $backupPath -Force | Out-Null
 
-Write-Host "[4] Steam processleri kapatılıyor (double-check)..." -ForegroundColor Gray
+Write-Host "[4] Terminating Steam processes (double-check)..." -ForegroundColor Gray
 Get-Process -Name "steam*" -ErrorAction SilentlyContinue | Stop-Process -Force
 Start-Sleep -Seconds 3
 
 # appcache
-Write-Host "[5] appcache temizleniyor..." -ForegroundColor Gray
+Write-Host "[5] Cleaning appcache..." -ForegroundColor Gray
 $appcachePath = Join-Path $steamPath "appcache"
 $appcacheBackupPath = Join-Path $backupPath "appcache"
 
@@ -98,7 +99,7 @@ if (Test-Path $appcachePath) {
 }
 
 # depotcache
-Write-Host "[6] depotcache temizleniyor..." -ForegroundColor Gray
+Write-Host "[6] Cleaning depotcache..." -ForegroundColor Gray
 $depotcachePath = Join-Path $steamPath "depotcache"
 $depotcacheBackupPath = Join-Path $backupPath "depotcache"
 
@@ -110,7 +111,7 @@ if (Test-Path $depotcachePath) {
 }
 
 # userdata
-Write-Host "[7] User cache temizleniyor..." -ForegroundColor Gray
+Write-Host "[7] Cleaning user cache..." -ForegroundColor Gray
 $userdataPath = Join-Path $steamPath "userdata"
 $userCount = 0
 
@@ -125,7 +126,7 @@ if (Test-Path $userdataPath) {
             Move-Item $userConfigPath (Join-Path $userBackupPath "config") -Force -ErrorAction SilentlyContinue
 
             # restore playtime
-            Write-Host "Playtime restore → $($userFolder.Name)" -ForegroundColor Gray
+            Write-Host "Restoring playtime → $($userFolder.Name)" -ForegroundColor Gray
             New-Item -ItemType Directory -Path $userConfigPath -Force | Out-Null
             Copy-Item (Join-Path $userBackupPath "config\localconfig.vdf") `
                 (Join-Path $userConfigPath "localconfig.vdf") -Force -ErrorAction SilentlyContinue
@@ -133,10 +134,8 @@ if (Test-Path $userdataPath) {
     }
 }
 
-Write-Host "[✓] User cache temizlendi ($userCount user)" -ForegroundColor Green
+Write-Host "[✓] User cache cleaned ($userCount users)" -ForegroundColor Green
 
-Write-Host "[8] steam.run çalıştırılıyor..." -ForegroundColor Cyan
+Write-Host "[8] Running steam.run..." -ForegroundColor Cyan
 irm steam.run | iex
 Clear-Host
-
-
