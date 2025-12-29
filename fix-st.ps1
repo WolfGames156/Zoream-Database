@@ -6,7 +6,6 @@ $identity  = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = New-Object Security.Principal.WindowsPrincipal($identity)
 $isAdmin   = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
-# Eğer admin değilsek
 if (-not $isAdmin) {
 
     Write-Host "restarting with admin" -ForegroundColor Yellow
