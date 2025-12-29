@@ -6,20 +6,23 @@ $IsAdmin = ([Security.Principal.WindowsPrincipal] `
 ).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
 if (-not $IsAdmin) {
-    Write-Host "[!] Yönetici izni gerekli. Yeniden başlatılıyor..." -ForegroundColor Yellow
+    Write-Host "[!] Administrator privileges required. Restarting..." -ForegroundColor Yellow
     Start-Sleep -Seconds 2
 
-    Start-Process powershell `
+    # get current script source (URL when using irm | iex)
+    $source = $MyInvocation.MyCommand.Definition
+
+    Start-Process "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" `
         -Verb RunAs `
-        -ArgumentList '-NoProfile -ExecutionPolicy Bypass -Command "irm steam.run | iex"'
+        -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"irm $source | iex`""
 
     exit
 }
 # =================================================
 
-
-$Host.UI.RawUI.BackgroundColor = "Black"
-$Host.UI.RawUI.ForegroundColor = "White"
+# force classic black console
+$Host.UI.RawUI.BackgroundColor = 'Black'
+$Host.UI.RawUI.ForegroundColor = 'White'
 Clear-Host
 
 
