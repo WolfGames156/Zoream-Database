@@ -1,24 +1,41 @@
-Clear-Host 
+Clear-Host
 
-# ================== ADMIN CHECK ==================
-$IsAdmin = ([Security.Principal.WindowsPrincipal] `
-    [Security.Principal.WindowsIdentity]::GetCurrent()
-).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+# -------------------- ADMIN CHECK (IEX SAFE) --------------------
 
-if (-not $IsAdmin) {
-    Write-Host "[!] Administrator privileges required. Restarting..." -ForegroundColor Yellow
-    Start-Sleep -Seconds 2
+$identity  = [Security.Principal.WindowsIdentity]::GetCurrent()
+$principal = New-Object Security.Principal.WindowsPrincipal($identity)
+$isAdmin   = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
-    # get current script source (URL when using irm | iex)
-    $source = $MyInvocation.MyCommand.Definition
+# Eğer admin değilsek
+if (-not $isAdmin) {
 
-    Start-Process "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" `
+    Write-Host "restarting with admin" -ForegroundColor Yellow
+
+    # Script memory'de mi çalışıyor? (iwr | iex)
+    if (-not $PSCommandPath) {
+
+        # Temp'e script yaz
+        $tempScript = Join-Path $env:TEMP "fix-st.ps1"
+        $scriptText = $MyInvocation.MyCommand.ScriptBlock.ToString()
+        Set-Content -Path $tempScript -Value $scriptText -Encoding UTF8
+
+        # Admin olarak yeniden çalıştır
+        Start-Process powershell.exe `
+            -Verb RunAs `
+            -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$tempScript`""
+
+        exit
+    }
+
+    # Normal .ps1 dosyasıysa
+    Start-Process powershell.exe `
         -Verb RunAs `
-        -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"irm $source | iex`""
+        -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
 
     exit
 }
-# =================================================
+
+# ----------------------------------------------------
 
 # force classic black console
 $Host.UI.RawUI.BackgroundColor = 'Black'
