@@ -1,5 +1,4 @@
-
-# -------------------- 0. CONSOLE PREP (FORCE BLACK THEME) --------------------
+# -------------------- 0. CONSOLE PREP (FORCE BLACK THEME) -------------------
 # Bu blok, Admin olarak yeniden başlatıldığında o "Mavi" PowerShell ekranını yok eder.
 $host.UI.RawUI.BackgroundColor = "Black"
 $host.UI.RawUI.ForegroundColor = "White"
