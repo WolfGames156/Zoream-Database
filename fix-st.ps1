@@ -82,17 +82,37 @@ if (-not $steamPath) { Write-Log "Steam not found!" "ERROR"; exit 1 }
 
 
 # Reset Steam Beta & Terminate
-Write-Log "Resetting Steam & Killing Processes..." "STEP"
+Write-Log "Clearing Beta & Killing Processes..." "STEP"
 Start-Process (Join-Path $steamPath "Steam.exe") -ArgumentList "-clearbeta"
-Start-Sleep -Seconds 2
+Start-Sleep -Seconds 5
 Get-Process steam* -ErrorAction SilentlyContinue | Stop-Process -Force
 
 # Cache Cleaning
 $backupPath = Join-Path $steamPath "cache-backup"
 New-Item -ItemType Directory -Path $backupPath -Force | Out-Null
+
 if (Test-Path (Join-Path $steamPath "appcache")) {
+    Write-Log "Cleaning AppCache..." "STEP"
     Move-Item (Join-Path $steamPath "appcache") (Join-Path $backupPath "appcache") -Force -ErrorAction SilentlyContinue
 }
+
+$userdataPath = Join-Path $steamPath "userdata"
+if (Test-Path $userdataPath) {
+    Write-Log "Optimizing user data..." "STEP"
+    foreach ($user in Get-ChildItem $userdataPath -Directory) {
+        $config = Join-Path $user.FullName "config"
+        if (Test-Path $config) {
+            $uBack = Join-Path $backupPath ("userdata\" + $user.Name)
+            New-Item -ItemType Directory -Path $uBack -Force | Out-Null
+            Move-Item $config $uBack -Force -ErrorAction SilentlyContinue
+            New-Item -ItemType Directory -Path $config -Force | Out-Null
+            if (Test-Path (Join-Path $uBack "config\localconfig.vdf")) {
+                Copy-Item (Join-Path $uBack "config\localconfig.vdf") (Join-Path $config "localconfig.vdf") -Force
+            }
+        }
+    }
+}
+
 
 # --- PLUGIN VALIDATION & AUTO-CLEAN ---
 Write-Log "Validating and Cleaning stplug-in folder..." "STEP"
