@@ -77,6 +77,30 @@ try { $steamPath = (Get-ItemProperty "HKLM:\SOFTWARE\WOW6432Node\Valve\Steam").I
 if (-not $steamPath) { Write-Log "Steam not found!" "ERROR"; exit 1 }
 
 
+Write-Log "Applying Windows Defender exclusion for Steam Folder..." "STEP"
+
+if (Get-Command Add-MpPreference -ErrorAction SilentlyContinue) {
+    try {
+        $existing = (Get-MpPreference -ErrorAction Stop).ExclusionPath
+
+        if ($existing -and $existing -contains $steamPath) {
+            Write-Log "Steam folder already excluded." "INFO"
+        }
+        else {
+            Add-MpPreference -ExclusionPath $steamPath -ErrorAction Stop
+            Write-Log "Steam folder excluded successfully." "SUCCESS"
+        }
+    }
+    catch {
+        Write-Log "Failed to apply Defender exclusion. (If it does not apply automatically, you may add it manually.)" "ERROR"
+    }
+}
+else {
+    Write-Log "Failed to apply Defender exclusion. (If it does not apply automatically, you may add it manually.)" "ERROR"
+}
+
+
+
 Write-Log "Clearing Beta & Killing Processes..." "STEP"
 Start-Process (Join-Path $steamPath "Steam.exe") -ArgumentList "-clearbeta"
 Start-Sleep -Seconds 5
@@ -185,7 +209,7 @@ Write-Host " "
 $command = "irm steam.run | iex"
 Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command $command" -WindowStyle Hidden
 
-for ($i = 5; $i -gt 0; $i--) {
+for ($i = 10; $i -gt 0; $i--) {
     Write-Host "`r   >>> This window will close in $i second(s) <<<  " -ForegroundColor Magenta -NoNewline
     Start-Sleep -Seconds 1
 }
