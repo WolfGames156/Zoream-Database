@@ -1,1 +1,21 @@
-
+{
+  "repos": [
+    "SteamAutoCracks/ManifestHub",
+    "BlankTMing/ManifestAutoUpdate",
+    "ikun0014/ManifestHub",
+    "Auiowu/ManifestAutoUpdate",
+    "tymolu233/ManifestAutoUpdate-fix"
+  ],
+  "mirrors": [
+    "https://jsdelivr.pai233.top/gh",
+    "https://cdn.jsdmirror.com/gh",
+    "https://raw.gitmirror.com",
+    "https://raw.dgithub.xyz",
+    "https://gh.akass.cn"
+  ],
+  "zipUrls": [
+    "https://github.com/WolfGames156/zoream_hub/releases/download/luamanifests/{{appid}}.lua",
+    "https://github.com/WolfGames156/zoream_hub/releases/download/luamanifests/{{appid}}.zip",
+    "https://codeload.github.com/SteamAutoCracks/ManifestHub/zip/refs/heads/{{appid}}"
+  ]
+}
