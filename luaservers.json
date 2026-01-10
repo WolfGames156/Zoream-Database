@@ -1,21 +1,43 @@
 {
+  "api_list": [
+    {
+      "url": "https://github.com/WolfGames156/zoream_hub/releases/download/luamanifests/<appid>.lua",
+      "enabled": true
+    },
+    {
+      "url": "https://github.com/WolfGames156/zoream_hub/releases/download/luamanifests/<appid>.zip",
+      "enabled": true
+    },
+    {
+      "url": "http://167.235.229.108/<appid>",
+      "User-Agent": "luatools-v61-stplugin-hoe",
+      "enabled": true
+    },
+    {
+      "url": "https://codeload.github.com/SteamAutoCracks/ManifestHub/zip/refs/heads/<appid>",
+      "enabled": true
+    }
+  ],
   "repos": [
-    "SteamAutoCracks/ManifestHub",
-    "BlankTMing/ManifestAutoUpdate",
-    "ikun0014/ManifestHub",
-    "Auiowu/ManifestAutoUpdate",
-    "tymolu233/ManifestAutoUpdate-fix"
-  ],
-  "mirrors": [
-    "https://jsdelivr.pai233.top/gh",
-    "https://cdn.jsdmirror.com/gh",
-    "https://raw.gitmirror.com",
-    "https://raw.dgithub.xyz",
-    "https://gh.akass.cn"
-  ],
-  "zipUrls": [
-    "https://github.com/WolfGames156/zoream_hub/releases/download/luamanifests/{{appid}}.lua",
-    "https://github.com/WolfGames156/zoream_hub/releases/download/luamanifests/{{appid}}.zip",
-    "https://codeload.github.com/SteamAutoCracks/ManifestHub/zip/refs/heads/{{appid}}"
+    {
+      "path": "SteamAutoCracks/ManifestHub",
+      "enabled": true
+    },
+    {
+      "path": "BlankTMing/ManifestAutoUpdate",
+      "enabled": true
+    },
+    {
+      "path": "ikun0014/ManifestHub",
+      "enabled": true
+    },
+    {
+      "path": "Auiowu/ManifestAutoUpdate",
+      "enabled": true
+    },
+    {
+      "path": "tymolu233/ManifestAutoUpdate-fix",
+      "enabled": true
+    }
   ]
 }
