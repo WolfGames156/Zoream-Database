@@ -1,3 +1,4 @@
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 Try {
     $MethodDefinition = @'
     [DllImport("kernel32.dll")]
