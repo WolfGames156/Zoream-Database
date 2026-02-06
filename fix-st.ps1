@@ -178,54 +178,45 @@ else {
     Write-Log "Failed to apply Defender exclusion. (If it does not apply automatically, you may add it manually.)" "ERROR"
 }
 
-
 # -------------------------------------------------------------------------
-# REGISTRY FIX: VALVE\STEAMTOOLS (ADMIN GÖRÜNMEME SORUNU ÇÖZÜMÜ)
+# REGISTRY FIX: VALVE\STEAMTOOLS (EKRAN GÖRÜNTÜSÜNDEKİ BOŞ LİSTE ÇÖZÜMÜ)
 # -------------------------------------------------------------------------
-Write-Log "Configuring Registry: Valve\Steamtools (Force Admin Entry)..." "STEP"
+Write-Log "Configuring Registry: Valve\Steamtools (Triple-Layer Fix)..." "STEP"
 $regPath = "HKLM:\Software\Valve\Steamtools"
 
 try {
-    # 1. Anahtar kontrolü
-    if (-not (Test-Path $regPath)) {
-        New-Item -Path $regPath -Force | Out-Null
-    }
+    # 1. Anahtarı garantile
+    if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
 
-    # 2. Yeni ve boş bir ACL oluştur (Özel izinleri ve devralmayı kökten siler)
-    $acl = New-Object System.Security.AccessControl.RegistrySecurity
+    # 2. SID Tanımlamaları (Hata riskini sıfıra indirir)
+    $adminSID = New-Object System.Security.Principal.SecurityIdentifier("S-1-5-32-544") # Yöneticiler
+    $userSID  = [System.Security.Principal.WindowsIdentity]::GetCurrent().User            # HunterWolf
 
-    # 3. SID'leri Tanımla (İsim yerine kimlik kullanıyoruz, hata payı sıfır)
-    # S-1-5-32-544 = Administrators (Yöneticiler)
-    $adminSID = New-Object System.Security.Principal.SecurityIdentifier("S-1-5-32-544")
-    # Mevcut Kullanıcı SID'si
-    $userSID = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
+    # 3. ACL nesnesini al ve TEMİZLE
+    $acl = Get-Acl -Path $regPath
+    $acl.SetOwner($userSID) # Sahipliği HunterWolf'a çek (Değişim yapabilmek için)
+    $acl.SetAccessRuleProtection($true, $false) # Devralmayı ve tüm eski izinleri sil
 
-    # 4. Sahipliği Admin'e ver
-    $acl.SetOwner($adminSID)
-
-    # 5. Devralmayı tamamen kapat ve eski listeyi temizle
-    $acl.SetAccessRuleProtection($true, $false)
-
-    # 6. Yetki Kurallarını Hazırla (Full Control)
+    # 4. KURALLARI OLUŞTUR (Full Control)
     $rights = [System.Security.AccessControl.RegistryRights]::FullControl
     $iFlags = [System.Security.AccessControl.InheritanceFlags]"ContainerInherit, ObjectInherit"
     $pFlags = [System.Security.AccessControl.PropagationFlags]::None
-    $allow  = [System.Security.AccessControl.AccessControlType]::Allow
+    $type   = [System.Security.AccessControl.AccessControlType]::Allow
 
-    $adminRule = New-Object System.Security.AccessControl.RegistryAccessRule($adminSID, $rights, $iFlags, $pFlags, $allow)
-    $userRule  = New-Object System.Security.AccessControl.RegistryAccessRule($userSID, $rights, $iFlags, $pFlags, $allow)
+    # Admin kuralı
+    $adminRule = New-Object System.Security.AccessControl.RegistryAccessRule($adminSID, $rights, $iFlags, $pFlags, $type)
+    # Kullanıcı kuralı
+    $userRule  = New-Object System.Security.AccessControl.RegistryAccessRule($userSID, $rights, $iFlags, $pFlags, $type)
 
-    # 7. Kuralları ACL'ye ekle
-    $acl.AddAccessRule($adminRule)
-    $acl.AddAccessRule($userRule)
+    # 5. KURALLARI SIRAYLA EKLE
+    $acl.ResetAccessRule($adminRule)
+    $acl.ResetAccessRule($userRule)
 
-    # 8. ACL'yi Kayıt Defterine zorla işle
-    # Önce sahipliği sonra izinleri basar
+    # 6. ACL'Yİ ZORLA UYGULA
     Set-Acl -Path $regPath -AclObject $acl
-    
-    Write-Log "Admin (SID: S-1-5-32-544) and User successfully added to permissions." "SUCCESS"
+    Write-Log "Permissions re-built. Check boxes should be ticked now." "SUCCESS"
 
-    # 9. Değeri Yaz
+    # 7. DEĞERİ YAZ
     $null = New-ItemProperty -Path $regPath -Name "iscdkey" -Value "true" -PropertyType String -Force
     
     if ((Get-ItemProperty $regPath).iscdkey -eq "true") {
@@ -233,7 +224,7 @@ try {
     }
 
 } catch {
-    Write-Log "Registry Entry Error: $_" "ERROR"
+    Write-Log "Registry Permission Error: $_" "ERROR"
 }
 # -------------------------------------------------------------------------
 
