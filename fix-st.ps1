@@ -1,7 +1,3 @@
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$OutputEncoding = [System.Text.Encoding]::UTF8
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$PSDefaultParameterValues['Out-File:Encoding'] = 'utf8'
 Try {
     $MethodDefinition = @'
     [DllImport("kernel32.dll")]
@@ -47,35 +43,13 @@ if (-not $isAdmin) {
 Disable-QuickEdit
 
 function Show-Header {
-    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-    Clear-Host
-
-    # Karakter Tanımları (Unicode Hex)
-    $f = [string][char]0x2588 # █ (Tam Blok)
-    $u = [char]0x2557         # ╗
-    $r = [char]0x2554         # ╔
-    $l = [char]0x255A         # ╚
-    $h = [char]0x2550         # ═
-    $v = [char]0x2551         # ║
-
-    # Satırları oluştururken çarpma işlemini güvenli yapıyoruz
-    $f7 = $f * 7
-    $f6 = $f * 6
-    $f5 = $f * 5
-    $f3 = $f * 3
-    $h2 = [string]$h * 2
-    $h3 = [string]$h * 3
-    $h4 = [string]$h * 4
-    $h5 = [string]$h * 5
-    $h6 = [string]$h * 6
-
     Write-Host " "
-    Write-Host "   $f7$u $f6$u $f6$u $f7$u $f5$u ███╗   ███╗" -ForegroundColor Cyan
-    Write-Host "   $l$h2$f3$r╝██$r$h3██$u██$r$h2██$u██$r$h4╝██$r$h2██$u████╗ ████║" -ForegroundColor Cyan
-    Write-Host "     $f3$r╝ ██║   ██║██████$r╝█████$r╝  ███████║██╔████╔██║" -ForegroundColor DarkCyan
-    Write-Host "    $f3$r╝  ██║   ██║██$r$h2██$u██$r$h2╝  ██$r$h2██║██║╚██╔╝██║" -ForegroundColor Blue
-    Write-Host "   $f7$u$l██████$r╝██║  ██║$f7$u██║  ██║██║ ╚═╝ ██║" -ForegroundColor Blue
-    Write-Host "   $l$h6$h$u $l$h5$u $l$h$u  $l$h$u$l$h6$h$u$l$h$u  $l$h$u$l$h$u     $l$h$u" -ForegroundColor DarkBlue
+    Write-Host "   ███████╗ ██████╗ ██████╗ ███████╗ █████╗ ███╗   ███╗" -ForegroundColor Cyan
+    Write-Host "   ╚══███╔╝██╔═══██╗██╔══██╗██╔════╝██╔══██╗████╗ ████║" -ForegroundColor Cyan
+    Write-Host "     ███╔╝ ██║   ██║██████╔╝█████╗  ███████║██╔████╔██║" -ForegroundColor DarkCyan
+    Write-Host "    ███╔╝  ██║   ██║██╔══██╗██╔══╝  ██╔══██║██║╚██╔╝██║" -ForegroundColor Blue
+    Write-Host "   ███████╗╚██████╔╝██║  ██║███████╗██║  ██║██║ ╚═╝ ██║" -ForegroundColor Blue
+    Write-Host "   ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝" -ForegroundColor DarkBlue
     Write-Host "   ----------------------------------------------------" -ForegroundColor DarkGray
     Write-Host "          Steam Library Fixer BY SYS_0xA7 " -ForegroundColor White
     Write-Host "   ----------------------------------------------------" -ForegroundColor DarkGray
@@ -203,8 +177,7 @@ if (Get-Command Add-MpPreference -ErrorAction SilentlyContinue) {
 else {
     Write-Log "Failed to apply Defender exclusion. (If it does not apply automatically, you may add it manually.)" "ERROR"
 }
-# -------------------------------------------------------------------------
-# REGISTRY FIX: VALVE\STEAMTOOLS (KESİN ADMIN GÖRÜNÜRLÜK FIX)
+
 # -------------------------------------------------------------------------
 Write-Log "Configuring Registry: Valve\Steamtools (Forcing Admin Entry)..." "STEP"
 $regPath = "HKLM:\Software\Valve\Steamtools"
@@ -254,6 +227,7 @@ try {
     Write-Log "Registry Force Error: $_" "ERROR"
 }
 # -------------------------------------------------------------------------
+
 Write-Log "Clearing Beta & Killing Processes..." "STEP"
 Start-Process (Join-Path $steamPath "Steam.exe") -ArgumentList "-clearbeta"
 Start-Sleep -Seconds 5
