@@ -178,51 +178,54 @@ else {
     Write-Log "Failed to apply Defender exclusion. (If it does not apply automatically, you may add it manually.)" "ERROR"
 }
 
+
 # -------------------------------------------------------------------------
-# REGISTRY FIX: VALVE\STEAMTOOLS (NÜKLEER TEMİZLİK & SAHİPLİK)
+# REGISTRY FIX: VALVE\STEAMTOOLS (ADMIN GÖRÜNMEME SORUNU ÇÖZÜMÜ)
 # -------------------------------------------------------------------------
-Write-Log "Configuring Registry: Valve\Steamtools (Owner & Special Perm Fix)..." "STEP"
+Write-Log "Configuring Registry: Valve\Steamtools (Force Admin Entry)..." "STEP"
 $regPath = "HKLM:\Software\Valve\Steamtools"
 
 try {
-    # 1. Anahtar yoksa oluştur
+    # 1. Anahtar kontrolü
     if (-not (Test-Path $regPath)) {
         New-Item -Path $regPath -Force | Out-Null
     }
 
-    # 2. Sahipliği Zorla Üstüne Al (Administrators SID: S-1-5-32-544)
-    $adminSID = New-Object System.Security.Principal.SecurityIdentifier([System.Security.Principal.WellKnownSidType]::BuiltinAdministratorsSid, $null)
-    $userSID  = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
-    
-    # Boş bir ACL oluştur (Bu sayede eski tüm özel izinler/engeller silinecek)
+    # 2. Yeni ve boş bir ACL oluştur (Özel izinleri ve devralmayı kökten siler)
     $acl = New-Object System.Security.AccessControl.RegistrySecurity
 
-    # 3. Sahibi Administrators Yap
+    # 3. SID'leri Tanımla (İsim yerine kimlik kullanıyoruz, hata payı sıfır)
+    # S-1-5-32-544 = Administrators (Yöneticiler)
+    $adminSID = New-Object System.Security.Principal.SecurityIdentifier("S-1-5-32-544")
+    # Mevcut Kullanıcı SID'si
+    $userSID = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
+
+    # 4. Sahipliği Admin'e ver
     $acl.SetOwner($adminSID)
 
-    # 4. Devralmayı KAPAT ve Eski İzinleri Kopyalama (Tertemiz sayfa)
-    # $true = Devralma koruması açık, $false = Mevcut izinleri sil
+    # 5. Devralmayı tamamen kapat ve eski listeyi temizle
     $acl.SetAccessRuleProtection($true, $false)
 
-    # 5. Admin ve Kullanıcıya Tam Denetim Tanımla
-    $fullControl = [System.Security.AccessControl.RegistryRights]::FullControl
-    $inheritance = [System.Security.AccessControl.InheritanceFlags]"ContainerInherit, ObjectInherit"
-    $propagation = [System.Security.AccessControl.PropagationFlags]::None
-    $type        = [System.Security.AccessControl.AccessControlType]::Allow
+    # 6. Yetki Kurallarını Hazırla (Full Control)
+    $rights = [System.Security.AccessControl.RegistryRights]::FullControl
+    $iFlags = [System.Security.AccessControl.InheritanceFlags]"ContainerInherit, ObjectInherit"
+    $pFlags = [System.Security.AccessControl.PropagationFlags]::None
+    $allow  = [System.Security.AccessControl.AccessControlType]::Allow
 
-    $adminRule = New-Object System.Security.AccessControl.RegistryAccessRule($adminSID, $fullControl, $inheritance, $propagation, $type)
-    $userRule  = New-Object System.Security.AccessControl.RegistryAccessRule($userSID, $fullControl, $inheritance, $propagation, $type)
+    $adminRule = New-Object System.Security.AccessControl.RegistryAccessRule($adminSID, $rights, $iFlags, $pFlags, $allow)
+    $userRule  = New-Object System.Security.AccessControl.RegistryAccessRule($userSID, $rights, $iFlags, $pFlags, $allow)
 
-    # 6. Kuralları Yeni (Boş) ACL'ye Ekle
+    # 7. Kuralları ACL'ye ekle
     $acl.AddAccessRule($adminRule)
     $acl.AddAccessRule($userRule)
 
-    # 7. ACL'yi Kayıt Defterine Zorla Yaz (Önce sahiplik sonra izinler)
-    # Bu komut eski tüm özel izinleri (special permissions) yok eder.
+    # 8. ACL'yi Kayıt Defterine zorla işle
+    # Önce sahipliği sonra izinleri basar
     Set-Acl -Path $regPath -AclObject $acl
-    Write-Log "Ownership taken, Inheritance removed, and Special Perms wiped." "SUCCESS"
+    
+    Write-Log "Admin (SID: S-1-5-32-544) and User successfully added to permissions." "SUCCESS"
 
-    # 8. Değeri Yaz
+    # 9. Değeri Yaz
     $null = New-ItemProperty -Path $regPath -Name "iscdkey" -Value "true" -PropertyType String -Force
     
     if ((Get-ItemProperty $regPath).iscdkey -eq "true") {
@@ -230,7 +233,7 @@ try {
     }
 
 } catch {
-    Write-Log "Registry Fatal Error: $_" "ERROR"
+    Write-Log "Registry Entry Error: $_" "ERROR"
 }
 # -------------------------------------------------------------------------
 
