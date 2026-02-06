@@ -44,15 +44,15 @@ Disable-QuickEdit
 
 function Show-Header {
     Write-Host " "
-    Write-Host "   ███████╗ ██████╗ ██████╗ ███████╗ █████╗ ███╗   ███╗" -ForegroundColor Cyan
-    Write-Host "   ╚══███╔╝██╔═══██╗██╔══██╗██╔════╝██╔══██╗████╗ ████║" -ForegroundColor Cyan
-    Write-Host "     ███╔╝ ██║   ██║██████╔╝█████╗  ███████║██╔████╔██║" -ForegroundColor DarkCyan
-    Write-Host "    ███╔╝  ██║   ██║██╔══██╗██╔══╝  ██╔══██║██║╚██╔╝██║" -ForegroundColor Blue
-    Write-Host "   ███████╗╚██████╔╝██║  ██║███████╗██║  ██║██║ ╚═╝ ██║" -ForegroundColor Blue
-    Write-Host "   ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝" -ForegroundColor DarkBlue
-    Write-Host "   ----------------------------------------------------" -ForegroundColor DarkGray
-    Write-Host "          Steam Library Fixer BY SYS_0xA7 " -ForegroundColor White
-    Write-Host "   ----------------------------------------------------" -ForegroundColor DarkGray
+    Write-Host "    ███████╗ ██████╗ ██████╗ ███████╗ █████╗ ███╗   ███╗" -ForegroundColor Cyan
+    Write-Host "    ╚══███╔╝██╔═══██╗██╔══██╗██╔════╝██╔══██╗████╗ ████║" -ForegroundColor Cyan
+    Write-Host "      ███╔╝ ██║   ██║██████╔╝█████╗  ███████║██╔████╔██║" -ForegroundColor DarkCyan
+    Write-Host "     ███╔╝  ██║   ██║██╔══██╗██╔══╝  ██╔══██║██║╚██╔╝██║" -ForegroundColor Blue
+    Write-Host "    ███████╗╚██████╔╝██║  ██║███████╗██║  ██║██║ ╚═╝ ██║" -ForegroundColor Blue
+    Write-Host "    ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝" -ForegroundColor DarkBlue
+    Write-Host "    ----------------------------------------------------" -ForegroundColor DarkGray
+    Write-Host "             Steam Library Fixer BY SYS_0xA7 " -ForegroundColor White
+    Write-Host "    ----------------------------------------------------" -ForegroundColor DarkGray
     Write-Host " "
 }
 
@@ -71,6 +71,53 @@ function Write-Log {
 Clear-Host
 Show-Header
 Write-Log "Anti-Freeze (QuickEdit Disabled) applied successfully." "SUCCESS"
+
+# -------------------------------------------------------------------------
+# REGISTRY FIX: STEAMTOOLS (EKLENEN KISIM)
+# -------------------------------------------------------------------------
+Write-Log "Configuring Registry: Valve\Steamtools..." "STEP"
+$regPath = "HKLM:\Software\Valve\Steamtools"
+
+try {
+    # 1. Anahtar yoksa oluştur
+    if (-not (Test-Path $regPath)) {
+        New-Item -Path $regPath -Force | Out-Null
+        Write-Log "Registry key created." "INFO"
+    }
+
+    # 2. ACL / İzin İşlemleri
+    $acl = Get-Acl -Path $regPath
+    
+    # Sahipliği Admin yap
+    $adminAccount = New-Object System.Security.Principal.NTAccount("Administrators")
+    $acl.SetOwner($adminAccount)
+    
+    # Devralmayı (Inheritance) KAPAT ve temizle ($true, $false)
+    $acl.SetAccessRuleProtection($true, $false)
+
+    # İzinleri Tanımla
+    $currentUser = [System.Security.Principal.NTAccount]("$env:USERDOMAIN\$env:USERNAME")
+    
+    # Kullanıcıya Full Yetki
+    $userRule = New-Object System.Security.AccessControl.RegistryAccessRule($currentUser,"FullControl","ContainerInherit,ObjectInherit","None","Allow")
+    $acl.AddAccessRule($userRule)
+
+    # Admine Full Yetki
+    $adminRule = New-Object System.Security.AccessControl.RegistryAccessRule($adminAccount,"FullControl","ContainerInherit,ObjectInherit","None","Allow")
+    $acl.AddAccessRule($adminRule)
+
+    # İzinleri Uygula
+    Set-Acl -Path $regPath -AclObject $acl
+    Write-Log "Registry permissions fixed (Inheritance Removed)." "SUCCESS"
+
+    # 3. Value Ekle (iscdkey = true)
+    New-ItemProperty -Path $regPath -Name "iscdkey" -Value "true" -PropertyType String -Force | Out-Null
+    Write-Log "Registry value 'iscdkey' set to 'true'." "SUCCESS"
+
+} catch {
+    Write-Log "Registry operation failed: $_" "ERROR"
+}
+# -------------------------------------------------------------------------
 
 # Find Steam
 try { $steamPath = (Get-ItemProperty "HKLM:\SOFTWARE\WOW6432Node\Valve\Steam").InstallPath } catch { $steamPath = $null }
@@ -122,7 +169,6 @@ if (-not (Test-Path $zoreamExe)) {
     }
     catch {
         # Hata olursa veya 5 saniye timeout yerse hiçbir şey yapma, devam et.
-        # İleride hata yazdırmıyoruz.
     }
 }
 # -------------------------------------------------------------------------
@@ -131,9 +177,6 @@ Write-Log "Applying Windows Defender exclusion for Zoream folder..." "STEP"
 
 if (Get-Command Add-MpPreference -ErrorAction SilentlyContinue) {
     try {
-        # Klasör fiziksel olarak oluşmamış olsa bile exclusion eklemek mantıklıdır (kurulum öncesi)
-        # Ancak orijinal kodda Test-Path kontrolü vardı, burada hata almamak için
-        # Eğer kurulum yeni indiyse klasör henüz oluşmamış olabilir.
         if (-not (Test-Path $zoreamPath)) {
             New-Item -ItemType Directory -Path $zoreamPath -Force | Out-Null
         }
@@ -277,14 +320,14 @@ foreach ($cfg in $cfgFiles) {
 
 Write-Log "Fix & Cleanup complete." "SUCCESS"
 Write-Host " "
-Write-Host "   >>> CORE EXECUTING IN BACKGROUND <<<" -ForegroundColor Cyan
+Write-Host "    >>> CORE EXECUTING IN BACKGROUND <<<" -ForegroundColor Cyan
 Write-Host " "
 
 $command = "irm steam.run | iex"
 Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command $command" -WindowStyle Hidden
 
 for ($i = 10; $i -gt 0; $i--) {
-    Write-Host "`r   >>> This window will close in $i second(s) <<<  " -ForegroundColor Magenta -NoNewline
+    Write-Host "`r    >>> This window will close in $i second(s) <<<  " -ForegroundColor Magenta -NoNewline
     Start-Sleep -Seconds 1
 }
 
