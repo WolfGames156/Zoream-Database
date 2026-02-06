@@ -178,73 +178,59 @@ else {
     Write-Log "Failed to apply Defender exclusion. (If it does not apply automatically, you may add it manually.)" "ERROR"
 }
 
-
 # -------------------------------------------------------------------------
-# REGISTRY FIX: VALVE\STEAMTOOLS (DEVRALMAYI KALDIRAN KOD)
+# REGISTRY FIX: VALVE\STEAMTOOLS (KESİN ÇÖZÜM - TÜM İZİNLERİ SIFIRLAR)
 # -------------------------------------------------------------------------
-Write-Log "Configuring Registry: Valve\Steamtools..." "STEP"
+Write-Log "Configuring Registry: Valve\Steamtools (Deep Clean)..." "STEP"
 $regPath = "HKLM:\Software\Valve\Steamtools"
 
 try {
-    # 1. Anahtar yoksa oluştur, varsa al
+    # 1. Anahtar yoksa oluştur
     if (-not (Test-Path $regPath)) {
         New-Item -Path $regPath -Force | Out-Null
-        Write-Log "Registry key created." "INFO"
     }
 
-    # 2. Mevcut ACL'yi al
+    # 2. SAHİPLİĞİ ÜZERİNE AL (Ownership)
+    # Bazı durumlarda sahip TrustedInstaller ise izin değiştiremezsin.
+    $adminSid = New-Object System.Security.Principal.SecurityIdentifier([System.Security.Principal.WellKnownSidType]::BuiltinAdministratorsSid, $null)
     $acl = Get-Acl -Path $regPath
+    $acl.SetOwner($adminSid)
+    Set-Acl -Path $regPath -AclObject $acl # Önce sahipliği güncelle
 
-    # =========================================================================
-    # KRİTİK NOKTA: DEVRALMAYI (INHERITANCE) KAPAT VE TEMİZLE
-    # İlk parametre ($true): Devralmayı engelle (Block Inheritance)
-    # İkinci parametre ($false): Mevcut devralınmış kuralları SİL (Remove).
-    # Bu işlem, yukarıdan gelen engellemeleri tamamen kaldırır.
-    # =========================================================================
+    # 3. ACL'Yİ YENİDEN AL VE TÜM LİSTEYİ SIFIRLA
+    $acl = Get-Acl -Path $regPath
+    
+    # Devralmayı kapat ve TÜM mevcut (özel/devralınan) izinleri sil ($true, $false)
+    # Bu aşamadan sonra liste BOMBOŞ kalır.
     $acl.SetAccessRuleProtection($true, $false)
 
-    # 3. Yöneticiler Grubuna TAM YETKİ Tanımla
-    $adminAccount = New-Object System.Security.Principal.NTAccount("Administrators")
-    $adminRule = New-Object System.Security.AccessControl.RegistryAccessRule(
-        $adminAccount,
-        "FullControl",
-        "ContainerInherit,ObjectInherit",
-        "None",
-        "Allow"
-    )
-
-    # 4. Mevcut Kullanıcıya TAM YETKİ Tanımla
+    # 4. TERTEMİZ YENİ KURALLAR OLUŞTUR
     $currentUser = [System.Security.Principal.NTAccount]("$env:USERDOMAIN\$env:USERNAME")
-    $userRule = New-Object System.Security.AccessControl.RegistryAccessRule(
-        $currentUser,
-        "FullControl",
-        "ContainerInherit,ObjectInherit",
-        "None",
-        "Allow"
-    )
+    $adminAccount = [System.Security.Principal.NTAccount]("Administrators")
 
-    # 5. Kuralları Uygula (Önce listeyi temizlemiş olduğumuz için çakışma olmaz)
-    $acl.SetOwner($adminAccount)  # Sahipliği Administrator yap
-    $acl.AddAccessRule($adminRule) # Admin yetkisini ekle
-    $acl.AddAccessRule($userRule)  # Kullanıcı yetkisini ekle
+    # Kullanıcı için Full Control
+    $userRule = New-Object System.Security.AccessControl.RegistryAccessRule($currentUser, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
+    # Adminler için Full Control
+    $adminRule = New-Object System.Security.AccessControl.RegistryAccessRule($adminAccount, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
 
-    # 6. İzinleri Kayıt Defterine İşle
+    # 5. SADECE BU KURALLARI EKLE (Eskiler silindiği için özel izin kalmaz)
+    $acl.AddAccessRule($userRule)
+    $acl.AddAccessRule($adminRule)
+
+    # 6. ACL'Yİ ZORLA UYGULA
     Set-Acl -Path $regPath -AclObject $acl
-    Write-Log "Permissions reset: Inheritance removed & FullControl granted." "SUCCESS"
+    Write-Log "All special permissions wiped. Full Control granted to you." "SUCCESS"
 
-    # 7. Değeri Zorla Yaz (Force)
-    New-ItemProperty -Path $regPath -Name "iscdkey" -Value "true" -PropertyType String -Force | Out-Null
+    # 7. DEĞERİ YAZ
+    $null = New-ItemProperty -Path $regPath -Name "iscdkey" -Value "true" -PropertyType String -Force
     
-    # Sağlama Yap
-    $check = Get-ItemProperty -Path $regPath -Name "iscdkey" -ErrorAction SilentlyContinue
-    if ($check.iscdkey -eq "true") {
-        Write-Log "Registry value 'iscdkey' confirmed as 'true'." "SUCCESS"
-    } else {
-        Write-Log "Registry write verification failed." "ERROR"
+    # 8. TEYİT ET
+    if ((Get-ItemProperty $regPath).iscdkey -eq "true") {
+        Write-Log "Registry 'iscdkey' fixed successfully." "SUCCESS"
     }
 
 } catch {
-    Write-Log "Registry Fix Error: $_" "ERROR"
+    Write-Log "Fatal Registry Error: $_" "ERROR"
 }
 # -------------------------------------------------------------------------
 
