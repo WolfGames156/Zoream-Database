@@ -1,4 +1,7 @@
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$PSDefaultParameterValues['Out-File:Encoding'] = 'utf8'
 Try {
     $MethodDefinition = @'
     [DllImport("kernel32.dll")]
@@ -44,6 +47,8 @@ if (-not $isAdmin) {
 Disable-QuickEdit
 
 function Show-Header {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    Clear-Host # Karakterlerin temiz bir ekranda basılması için
     Write-Host " "
     Write-Host "   ███████╗ ██████╗ ██████╗ ███████╗ █████╗ ███╗   ███╗" -ForegroundColor Cyan
     Write-Host "   ╚══███╔╝██╔═══██╗██╔══██╗██╔════╝██╔══██╗████╗ ████║" -ForegroundColor Cyan
