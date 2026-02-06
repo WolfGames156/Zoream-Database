@@ -48,13 +48,24 @@ Disable-QuickEdit
 
 function Show-Header {
     [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-    Clear-Host # Karakterlerin temiz bir ekranda basılması için
+    Clear-Host
+    
+    # Blok karakterini (█) ve köşe karakterlerini kod olarak tanımlıyoruz
+    $f = [char]0x2588 # Tam blok █
+    $tl = [char]0x2554 # Sol üst köşe ╔
+    $tr = [char]0x2557 # Sağ üst köşe ╗
+    $bl = [char]0x255A # Sol alt köşe ╚
+    $br = [char]0x255D # Sağ alt köşe ╝
+    $h = [char]0x2550 # Yatay çift çizge ═
+    $v = [char]0x2551 # Dikey çift çizge ║
+    $u = [char]0x2551 # Üst çizgi (bazı fontlarda farklı durabilir)
+
     Write-Host " "
-    Write-Host "   ███████╗ ██████╗ ██████╗ ███████╗ █████╗ ███╗   ███╗" -ForegroundColor Cyan
-    Write-Host "   ╚══███╔╝██╔═══██╗██╔══██╗██╔════╝██╔══██╗████╗ ████║" -ForegroundColor Cyan
-    Write-Host "     ███╔╝ ██║   ██║██████╔╝█████╗  ███████║██╔████╔██║" -ForegroundColor DarkCyan
-    Write-Host "    ███╔╝  ██║   ██║██╔══██╗██╔══╝  ██╔══██║██║╚██╔╝██║" -ForegroundColor Blue
-    Write-Host "   ███████╗╚██████╔╝██║  ██║███████╗██║  ██║██║ ╚═╝ ██║" -ForegroundColor Blue
+    Write-Host "   $($f*7)╗ $($f*6)╗ $($f*6)╗ $($f*7)╗ $($f*5)╗ ███╗   ███╗" -ForegroundColor Cyan
+    Write-Host "   $bl$($h*2)$($f*3)╔╝$f$f╔═══$f$f╗$f$f╔══$f$f╗$f$f╔════╝$f$f╔══$f$f╗████╗ ████║" -ForegroundColor Cyan
+    Write-Host "     $f$f$f╔╝ $f$f║   $f$f║$f$f$f$f$f$f╔╝$f$f$f$f$f╗  $f$f$f$f$f$f$f║██╔████╔██║" -ForegroundColor DarkCyan
+    Write-Host "    $f$f$f╔╝  $f$f║   $f$f║$f$f╔══$f$f╗$f$f╔══╝  $f$f╔══$f$f║██║╚██╔╝██║" -ForegroundColor Blue
+    Write-Host "   $f$f$f$f$f$f$f╗╚$f$f$f$f$f$f╔╝$f$f║  $f$f║$f$f$f$f$f$f$f╗$f$f║  $f$f║██║ ╚═╝ ██║" -ForegroundColor Blue
     Write-Host "   ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝" -ForegroundColor DarkBlue
     Write-Host "   ----------------------------------------------------" -ForegroundColor DarkGray
     Write-Host "          Steam Library Fixer BY SYS_0xA7 " -ForegroundColor White
