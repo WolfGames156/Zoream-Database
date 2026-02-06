@@ -179,9 +179,9 @@ else {
 }
 
 # -------------------------------------------------------------------------
-# REGISTRY FIX: VALVE\STEAMTOOLS (KESİN ÇÖZÜM - TÜM İZİNLERİ SIFIRLAR)
+# REGISTRY FIX: VALVE\STEAMTOOLS (NÜKLEER TEMİZLİK & SAHİPLİK)
 # -------------------------------------------------------------------------
-Write-Log "Configuring Registry: Valve\Steamtools (Deep Clean)..." "STEP"
+Write-Log "Configuring Registry: Valve\Steamtools (Owner & Special Perm Fix)..." "STEP"
 $regPath = "HKLM:\Software\Valve\Steamtools"
 
 try {
@@ -190,47 +190,47 @@ try {
         New-Item -Path $regPath -Force | Out-Null
     }
 
-    # 2. SAHİPLİĞİ ÜZERİNE AL (Ownership)
-    # Bazı durumlarda sahip TrustedInstaller ise izin değiştiremezsin.
-    $adminSid = New-Object System.Security.Principal.SecurityIdentifier([System.Security.Principal.WellKnownSidType]::BuiltinAdministratorsSid, $null)
-    $acl = Get-Acl -Path $regPath
-    $acl.SetOwner($adminSid)
-    Set-Acl -Path $regPath -AclObject $acl # Önce sahipliği güncelle
-
-    # 3. ACL'Yİ YENİDEN AL VE TÜM LİSTEYİ SIFIRLA
-    $acl = Get-Acl -Path $regPath
+    # 2. Sahipliği Zorla Üstüne Al (Administrators SID: S-1-5-32-544)
+    $adminSID = New-Object System.Security.Principal.SecurityIdentifier([System.Security.Principal.WellKnownSidType]::BuiltinAdministratorsSid, $null)
+    $userSID  = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
     
-    # Devralmayı kapat ve TÜM mevcut (özel/devralınan) izinleri sil ($true, $false)
-    # Bu aşamadan sonra liste BOMBOŞ kalır.
+    # Boş bir ACL oluştur (Bu sayede eski tüm özel izinler/engeller silinecek)
+    $acl = New-Object System.Security.AccessControl.RegistrySecurity
+
+    # 3. Sahibi Administrators Yap
+    $acl.SetOwner($adminSID)
+
+    # 4. Devralmayı KAPAT ve Eski İzinleri Kopyalama (Tertemiz sayfa)
+    # $true = Devralma koruması açık, $false = Mevcut izinleri sil
     $acl.SetAccessRuleProtection($true, $false)
 
-    # 4. TERTEMİZ YENİ KURALLAR OLUŞTUR
-    $currentUser = [System.Security.Principal.NTAccount]("$env:USERDOMAIN\$env:USERNAME")
-    $adminAccount = [System.Security.Principal.NTAccount]("Administrators")
+    # 5. Admin ve Kullanıcıya Tam Denetim Tanımla
+    $fullControl = [System.Security.AccessControl.RegistryRights]::FullControl
+    $inheritance = [System.Security.AccessControl.InheritanceFlags]"ContainerInherit, ObjectInherit"
+    $propagation = [System.Security.AccessControl.PropagationFlags]::None
+    $type        = [System.Security.AccessControl.AccessControlType]::Allow
 
-    # Kullanıcı için Full Control
-    $userRule = New-Object System.Security.AccessControl.RegistryAccessRule($currentUser, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
-    # Adminler için Full Control
-    $adminRule = New-Object System.Security.AccessControl.RegistryAccessRule($adminAccount, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
+    $adminRule = New-Object System.Security.AccessControl.RegistryAccessRule($adminSID, $fullControl, $inheritance, $propagation, $type)
+    $userRule  = New-Object System.Security.AccessControl.RegistryAccessRule($userSID, $fullControl, $inheritance, $propagation, $type)
 
-    # 5. SADECE BU KURALLARI EKLE (Eskiler silindiği için özel izin kalmaz)
-    $acl.AddAccessRule($userRule)
+    # 6. Kuralları Yeni (Boş) ACL'ye Ekle
     $acl.AddAccessRule($adminRule)
+    $acl.AddAccessRule($userRule)
 
-    # 6. ACL'Yİ ZORLA UYGULA
+    # 7. ACL'yi Kayıt Defterine Zorla Yaz (Önce sahiplik sonra izinler)
+    # Bu komut eski tüm özel izinleri (special permissions) yok eder.
     Set-Acl -Path $regPath -AclObject $acl
-    Write-Log "All special permissions wiped. Full Control granted to you." "SUCCESS"
+    Write-Log "Ownership taken, Inheritance removed, and Special Perms wiped." "SUCCESS"
 
-    # 7. DEĞERİ YAZ
+    # 8. Değeri Yaz
     $null = New-ItemProperty -Path $regPath -Name "iscdkey" -Value "true" -PropertyType String -Force
     
-    # 8. TEYİT ET
     if ((Get-ItemProperty $regPath).iscdkey -eq "true") {
-        Write-Log "Registry 'iscdkey' fixed successfully." "SUCCESS"
+        Write-Log "Registry 'iscdkey' fixed and verified." "SUCCESS"
     }
 
 } catch {
-    Write-Log "Fatal Registry Error: $_" "ERROR"
+    Write-Log "Registry Fatal Error: $_" "ERROR"
 }
 # -------------------------------------------------------------------------
 
