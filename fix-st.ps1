@@ -47,25 +47,23 @@ if (-not $isAdmin) {
 Disable-QuickEdit
 
 function Show-Header {
+    # Konsolun karakterleri doğru görmesi için zorla
     [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
     Clear-Host
-    
-    # Blok karakterini (█) ve köşe karakterlerini kod olarak tanımlıyoruz
-    $f = [char]0x2588 # Tam blok █
-    $tl = [char]0x2554 # Sol üst köşe ╔
-    $tr = [char]0x2557 # Sağ üst köşe ╗
-    $bl = [char]0x255A # Sol alt köşe ╚
-    $br = [char]0x255D # Sağ alt köşe ╝
-    $h = [char]0x2550 # Yatay çift çizge ═
-    $v = [char]0x2551 # Dikey çift çizge ║
-    $u = [char]0x2551 # Üst çizgi (bazı fontlarda farklı durabilir)
+
+    # Karakterleri çarpma işlemi yapmadan direkt string olarak tanımlıyoruz
+    $f = "█"
+    $f7 = "███████"
+    $f6 = "██████"
+    $f5 = "█████"
+    $f3 = "███"
 
     Write-Host " "
-    Write-Host "   $($f*7)╗ $($f*6)╗ $($f*6)╗ $($f*7)╗ $($f*5)╗ ███╗   ███╗" -ForegroundColor Cyan
-    Write-Host "   $bl$($h*2)$($f*3)╔╝$f$f╔═══$f$f╗$f$f╔══$f$f╗$f$f╔════╝$f$f╔══$f$f╗████╗ ████║" -ForegroundColor Cyan
-    Write-Host "     $f$f$f╔╝ $f$f║   $f$f║$f$f$f$f$f$f╔╝$f$f$f$f$f╗  $f$f$f$f$f$f$f║██╔████╔██║" -ForegroundColor DarkCyan
-    Write-Host "    $f$f$f╔╝  $f$f║   $f$f║$f$f╔══$f$f╗$f$f╔══╝  $f$f╔══$f$f║██║╚██╔╝██║" -ForegroundColor Blue
-    Write-Host "   $f$f$f$f$f$f$f╗╚$f$f$f$f$f$f╔╝$f$f║  $f$f║$f$f$f$f$f$f$f╗$f$f║  $f$f║██║ ╚═╝ ██║" -ForegroundColor Blue
+    Write-Host "   $f7╗ $f6╗ $f6╗ $f7╗ $f5╗ ███╗   ███╗" -ForegroundColor Cyan
+    Write-Host "   ╚══$f3╔╝██╔═══██╗██╔══██╗██╔════╝██╔══██╗████╗ ████║" -ForegroundColor Cyan
+    Write-Host "     $f3╔╝ ██║   ██║██████╔╝█████╗  ███████║██╔████╔██║" -ForegroundColor DarkCyan
+    Write-Host "    $f3╔╝  ██║   ██║██╔══██╗██╔══╝  ██╔══██║██║╚██╔╝██║" -ForegroundColor Blue
+    Write-Host "   $f7╗╚██████╔╝██║  ██║$f7╗██║  ██║██║ ╚═╝ ██║" -ForegroundColor Blue
     Write-Host "   ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝" -ForegroundColor DarkBlue
     Write-Host "   ----------------------------------------------------" -ForegroundColor DarkGray
     Write-Host "          Steam Library Fixer BY SYS_0xA7 " -ForegroundColor White
