@@ -261,6 +261,23 @@ if (Test-Path $userdataPath) {
     }
 }
 
+# Steam kapandıktan hemen sonra dwmapi.dll kontrolü ve temizliği
+Write-Log "Checking for unauthorized DLLs (dwmapi.dll)..." "STEP"
+$dwmapiPath = Join-Path $steamPath "dwmapi.dll"
+
+if (Test-Path $dwmapiPath) {
+    try {
+        Remove-Item $dwmapiPath -Force -ErrorAction Stop
+        Write-Log "dwmapi.dll found and successfully removed." "SUCCESS"
+    }
+    catch {
+        Write-Log "Could not remove dwmapi.dll. It might be in use or protected." "ERROR"
+    }
+} else {
+    Write-Log "dwmapi.dll not found. System is clean." "INFO"
+}
+
+
 Write-Log "Validating and Cleaning stplug-in folder..." "STEP"
 $stpluginPath = Join-Path $steamPath "config\stplug-in"
 
