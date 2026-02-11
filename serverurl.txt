@@ -1,1 +1,1 @@
-https://zoream-server.vercel.app
+https://zoream.dpdns.org
