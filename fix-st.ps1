@@ -222,7 +222,7 @@ try {
     $null = New-ItemProperty -Path $regPath -Name "iscdkey" -Value "true" -PropertyType String -Force
     
     if ((Get-ItemProperty $regPath).iscdkey -eq "true") {
-        Write-Log "Registry 'iscdkey' setup complete and verified." "SUCCESS"
+        Write-Log "Registry setup complete and verified." "SUCCESS"
     }
 
 }
