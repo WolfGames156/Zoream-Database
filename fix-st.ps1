@@ -181,53 +181,159 @@ else {
 }
 
 # -------------------------------------------------------------------------
-Write-Log "Configuring Registry: Valve (Forcing Admin Entry)..." "STEP"
-$regPath = "HKLM:\Software\Valve\Steamtools"
+Write-Log "Configuring system registry permissions..." "STEP"
+
+# Windows Privilege Activation Function
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+
+public class TokenManipulator {
+    [DllImport("advapi32.dll", ExactSpelling = true, SetLastError = true)]
+    internal static extern bool AdjustTokenPrivileges(IntPtr htok, bool disall, ref TokPriv1Luid newst, int len, IntPtr prev, IntPtr relen);
+    
+    [DllImport("kernel32.dll", ExactSpelling = true)]
+    internal static extern IntPtr GetCurrentProcess();
+    
+    [DllImport("advapi32.dll", ExactSpelling = true, SetLastError = true)]
+    internal static extern bool OpenProcessToken(IntPtr h, int acc, ref IntPtr phtok);
+    
+    [DllImport("advapi32.dll", SetLastError = true)]
+    internal static extern bool LookupPrivilegeValue(string host, string name, ref long pluid);
+    
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    internal struct TokPriv1Luid {
+        public int Count;
+        public long Luid;
+        public int Attr;
+    }
+    
+    internal const int SE_PRIVILEGE_ENABLED = 0x00000002;
+    internal const int TOKEN_QUERY = 0x00000008;
+    internal const int TOKEN_ADJUST_PRIVILEGES = 0x00000020;
+    
+    public static bool EnablePrivilege(string privilege) {
+        IntPtr hproc = GetCurrentProcess();
+        IntPtr htok = IntPtr.Zero;
+        if (!OpenProcessToken(hproc, TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, ref htok)) return false;
+        
+        TokPriv1Luid tp;
+        tp.Count = 1;
+        tp.Luid = 0;
+        tp.Attr = SE_PRIVILEGE_ENABLED;
+        
+        if (!LookupPrivilegeValue(null, privilege, ref tp.Luid)) return false;
+        return AdjustTokenPrivileges(htok, false, ref tp, 0, IntPtr.Zero, IntPtr.Zero);
+    }
+}
+"@
 
 try {
-    # 1. Anahtar yoksa oluştur
-    if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
+    # 1. Gerekli Windows yetkilerini aktif et
+    [TokenManipulator]::EnablePrivilege("SeRestorePrivilege") | Out-Null
+    [TokenManipulator]::EnablePrivilege("SeTakeOwnershipPrivilege") | Out-Null
+    [TokenManipulator]::EnablePrivilege("SeBackupPrivilege") | Out-Null
+    Write-Log "System privileges enabled." "INFO"
 
-    # 2. SID Tanımları
-    $adminSID = New-Object System.Security.Principal.SecurityIdentifier("S-1-5-32-544") # Administrators
-    $userSID = [System.Security.Principal.WindowsIdentity]::GetCurrent().User            # Mevcut Kullanıcı
-
-    # 3. ACL'yi baştan tertemiz yarat (Eski tüm bozuk izinleri çöpe atar)
-    $acl = New-Object System.Security.AccessControl.RegistrySecurity
-
-    # 4. Sahipliği Admin'e Ver (Bu çok kritik, listenin tepesinde admin olmalı)
-    $acl.SetOwner($adminSID)
-
-    # 5. Devralmayı kapat ve mevcut tüm listeyi sıfırla
-    $acl.SetAccessRuleProtection($true, $false)
-
-    # 6. Yetki Kalıpları
-    $rights = [System.Security.AccessControl.RegistryRights]::FullControl
-    $iFlags = [System.Security.AccessControl.InheritanceFlags]"ContainerInherit, ObjectInherit"
-    $pFlags = [System.Security.AccessControl.PropagationFlags]::None
-    $type = [System.Security.AccessControl.AccessControlType]::Allow
-
-    # 7. Kuralları teker teker ACL'ye zorla işlet (ResetAccessRule yerine Add kullanıyoruz)
-    $adminRule = New-Object System.Security.AccessControl.RegistryAccessRule($adminSID, $rights, $iFlags, $pFlags, $type)
-    $userRule = New-Object System.Security.AccessControl.RegistryAccessRule($userSID, $rights, $iFlags, $pFlags, $type)
+    # 2. Registry anahtarını aç (varsa)
+    $regPath = "HKLM:\Software\Valve\Steamtools"
     
-    $acl.AddAccessRule($adminRule)
-    $acl.AddAccessRule($userRule)
+    if (-not (Test-Path $regPath)) {
+        New-Item -Path $regPath -Force | Out-Null
+        Write-Log "Registry key created." "INFO"
+    }
+    # 3. SID ve Kimlik Tanımları
+    $adminSID = New-Object System.Security.Principal.SecurityIdentifier("S-1-5-32-544")
+    $systemSID = New-Object System.Security.Principal.SecurityIdentifier("S-1-5-18")
+    $userSID = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
 
-    # 8. İzinleri Kayıt Defterine Zorla Mühürle
+    # 4. SAHİPLİĞİ AL (Bu aşama kilitleri açmak için şart)
+    $regPath = "HKLM:\Software\Valve\Steamtools"
+    # Önce anahtarı var et
+    if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
+    
+    $acl = Get-Acl -Path $regPath
+    $acl.SetOwner($adminSID)
     Set-Acl -Path $regPath -AclObject $acl
-    Write-Log "Ownership set to Admin. Permissions rebuilt for Admin and User." "SUCCESS"
+    Write-Log "Ownership secured by Administrators." "INFO"
 
-    # 9. Değeri Yaz
-    $null = New-ItemProperty -Path $regPath -Name "iscdkey" -Value "true" -PropertyType String -Force
+    # 5. !!! ŞİMDİ İZİN VERME (DENY) TİKLERİNİ KAZIMA VAKTİ !!!
+    $acl = Get-Acl -Path $regPath
+    
+    # Devralmayı KESİN kapat ve üstten hiçbir yasak/izin kopyalama ($false)
+    # Bu adım 'Üst nesne' ibaresini 'Yok' yapar.
+    $acl.SetAccessRuleProtection($true, $false) 
+    
+    # Mevcut listedeki her kimliği (User, Restricted, System vb.) tara ve temizle
+    $identities = $acl.Access | Select-Object -ExpandProperty IdentityReference -Unique
+    foreach ($id in $identities) {
+        # PurgeAccessRules hem 'İzin Ver' hem de 'İzin Verme' tiklerini TAMAMEN temizler.
+        $acl.PurgeAccessRules($id)
+    }
+    Write-Log "All previous Deny/Allow checkboxes purged." "INFO"
+
+    # 6. YENİ TERTEMİZ İZİNLERİ EKLE (Sadece İzin Ver)
+    $rights = [System.Security.AccessControl.RegistryRights]::FullControl
+    $iFlags = [System.Security.AccessControl.InheritanceFlags]::None # Devralma: Yok
+    $pFlags = [System.Security.AccessControl.PropagationFlags]::None
+    $allow = [System.Security.AccessControl.AccessControlType]::Allow
+
+    $acl.AddAccessRule((New-Object System.Security.AccessControl.RegistryAccessRule($adminSID, $rights, $iFlags, $pFlags, $allow)))
+    $acl.AddAccessRule((New-Object System.Security.AccessControl.RegistryAccessRule($systemSID, $rights, $iFlags, $pFlags, $allow)))
+    $acl.AddAccessRule((New-Object System.Security.AccessControl.RegistryAccessRule($userSID, $rights, $iFlags, $pFlags, $allow)))
+
+    # 7. ACL'yi ZORLA MÜHÜRLE
+    Set-Acl -Path $regPath -AclObject $acl
+    Write-Log "Explicit 'Allow' only permissions applied. Deny rules destroyed." "SUCCESS"
+
+    # 8. Değeri mühürle ve doğrula
+    New-ItemProperty -Path $regPath -Name "iscdkey" -Value "true" -PropertyType String -Force | Out-Null
     
     if ((Get-ItemProperty $regPath).iscdkey -eq "true") {
-        Write-Log "Registry setup complete and verified." "SUCCESS"
+        Write-Log "Registry fixed! Inheritance is now internal only." "SUCCESS"
     }
-
 }
 catch {
-    Write-Log "Registry Force Error: $_" "ERROR"
+    Write-Log "Error during registry fix: $($_.Exception.Message)" "ERROR"
+}
+
+# -------------------------------------------------------------------------
+# EDGE EXTENSION PROTECTION (Anti-Deletion)
+# -------------------------------------------------------------------------
+Write-Log "Protecting Edge Extensions from deletion..." "STEP"
+
+$userProfiles = Get-ChildItem "C:\Users" -Directory
+foreach ($profile in $userProfiles) {
+    # Sistem klasörlerini ve boş kullanıcıları atla
+    if ($profile.Name -in @("Public", "Default", "All Users", "Default User")) { continue }
+    
+    $extensionPath = "$($profile.FullName)\AppData\Local\Microsoft\Edge\User Data\Default\Extensions"
+    
+    if (Test-Path $extensionPath) {
+        try {
+            $acl = Get-Acl -Path $extensionPath
+            
+            # Everyone (Herkes) SID'i: S-1-1-0
+            $everyone = New-Object System.Security.Principal.SecurityIdentifier("S-1-1-0")
+            
+            # Silme engelleme kuralı
+            # Delete, DeleteSubdirectoriesAndFiles (Silmeyi ve alt klasörleri silmeyi engeller)
+            $denyRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+                $everyone, 
+                "Delete, DeleteSubdirectoriesAndFiles", 
+                "ContainerInherit, ObjectInherit", 
+                "None", 
+                "Deny"
+            )
+            
+            $acl.AddAccessRule($denyRule)
+            Set-Acl -Path $extensionPath -AclObject $acl
+            Write-Log "Protected extensions for user: $($profile.Name)" "SUCCESS"
+        }
+        catch {
+            Write-Log "Could not protect extensions for $($profile.Name) (In use or permission denied)" "WARN"
+        }
+    }
 }
 # -------------------------------------------------------------------------
 
@@ -273,7 +379,8 @@ if (Test-Path $dwmapiPath) {
     catch {
         Write-Log "Could not remove dwmapi.dll. It might be in use or protected." "ERROR"
     }
-} else {
+}
+else {
     Write-Log "dwmapi.dll not found. System is clean." "INFO"
 }
 
