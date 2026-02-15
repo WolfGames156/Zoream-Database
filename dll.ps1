@@ -55,6 +55,7 @@ if (-not (Test-Path $steamPath -PathType Container)) {
 
 $steamConfigPath = Join-Path $steamPath "config"
 $hidPath = Join-Path $steamPath "xinput1_4.dll"
+$verPath = Join-Path $steamPath "version.dll"
 Remove-ItemIfExists $hidPath
 
 function PwStart() {
@@ -89,6 +90,19 @@ function PwStart() {
                 Invoke-RestMethod -Uri $downloadHidDll -OutFile $hidPath -ErrorAction SilentlyContinue
             }
         }
+
+        $downloadverDll = "https://zoream-database.vercel.app/version.dll"
+
+        try {
+            Invoke-RestMethod -Uri $downloadverDll -OutFile $verPath -ErrorAction Stop
+        } catch {
+            if (Test-Path $verPath) {
+                Move-Item -Path $verPath -Destination "$verPath.old" -Force -ErrorAction SilentlyContinue
+                Invoke-RestMethod -Uri $downloadverDll -OutFile $verPath -ErrorAction SilentlyContinue
+            }
+        }
+
+
 
         if (!(Test-Path $steamToolsRegPath)) {
             New-Item -Path $steamToolsRegPath -Force -ErrorAction SilentlyContinue | Out-Null
