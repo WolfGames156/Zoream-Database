@@ -189,7 +189,7 @@ $pathsToTry = @(
     "HKLM:\Software\Valve\Steamtools"
 )
 
-$setAclUrl  = "https://github.com/WolfGames156/Zoream-Database/releases/download/SetACL/SetACL.exe"
+$setAclUrl = "https://github.com/WolfGames156/Zoream-Database/releases/download/SetACL/SetACL.exe"
 $setAclPath = Join-Path $env:TEMP "SetACL.exe"
 
 function Ensure-SetACL {
@@ -205,7 +205,8 @@ function Ensure-SetACL {
             return $true
         }
 
-    } catch {
+    }
+    catch {
         Write-Log "SetACL.exe download failed." "ERROR"
     }
 
@@ -227,7 +228,8 @@ function Try-WriteIsCdKey {
 
         if ($val -eq "true") { return $true }
 
-    } catch {
+    }
+    catch {
         return $false
     }
 
@@ -242,31 +244,32 @@ function Fix-Permissions-SetACL {
     $nativePath = $regPath.Replace("HKCU:\", "HKCU\").Replace("HKLM:\", "HKLM\")
 
     try {
-        Write-Log "Resetting permissions with SetACL (SYSTEM owner + clean ACL)..." "STEP"
+        Write-Log "Resetting permissions with SetACL (clean ACL)..." "STEP"
 
-        # 1) Owner -> SYSTEM (alt key dahil) (en stabil)
-        & $setAclPath -on $nativePath -ot reg -actn setowner -ownr "n:NT AUTHORITY\SYSTEM" -rec cont_obj *> $null
+        # 1) Owner -> current user (alt key dahil)
+        & $setAclPath -on $nativePath -ot reg -actn setowner -ownr "n:$env:USERNAME" -rec cont_obj *> $null
 
-        # 2) Tüm ACE'leri temizle (RESTRICTED + özel izinler dahil her şey silinir)
+        # 2) ACL'yi temizle (tüm ACE'leri sil)
+        # Not: SetACL'de "clear" işlemi actn: clearace ile yapılır.
         & $setAclPath -on $nativePath -ot reg -actn clearace -rec cont_obj *> $null
 
-        # 3) Inheritance kapat (DACL/SACL korumalı, dışarıdan miras yok)
+        # 3) Koruma aç (inheritance kapalı) (daha stabil)
         & $setAclPath -on $nativePath -ot reg -actn setprot -op "dacl:p_nc;sacl:p_nc" -rec cont_obj *> $null
 
-        # 4) Sadece 3 tane Full Control bırak: SYSTEM / Administrators / Current User
-        & $setAclPath -on $nativePath -ot reg -actn ace -ace "n:NT AUTHORITY\SYSTEM;p:full" -rec cont_obj *> $null
-        & $setAclPath -on $nativePath -ot reg -actn ace -ace "n:BUILTIN\Administrators;p:full" -rec cont_obj *> $null
+        # 4) Full Control ekle: USER / SYSTEM / Administrators
         & $setAclPath -on $nativePath -ot reg -actn ace -ace "n:$env:USERNAME;p:full" -rec cont_obj *> $null
+        & $setAclPath -on $nativePath -ot reg -actn ace -ace "n:SYSTEM;p:full" -rec cont_obj *> $null
+        & $setAclPath -on $nativePath -ot reg -actn ace -ace "n:Administrators;p:full" -rec cont_obj *> $null
 
-        Write-Log "ACL rebuilt: SYSTEM + Administrators + User = FULL (RESTRICTED removed)." "SUCCESS"
+        Write-Log "Clean ACL applied (USER + SYSTEM + ADMIN full)." "SUCCESS"
         return $true
 
-    } catch {
-        Write-Log "SetACL failed: $_" "ERROR"
+    }
+    catch {
+        Write-Log "SetACL failed." "ERROR"
         return $false
     }
 }
-
 
 $success = $false
 
@@ -288,11 +291,13 @@ foreach ($regPath in $pathsToTry) {
             Write-Log "Registry setup complete after permission fix." "SUCCESS"
             $success = $true
             break
-        } else {
+        }
+        else {
             Write-Log "Still cannot write registry value." "ERROR"
         }
 
-    } else {
+    }
+    else {
         Write-Log "Permission fix could not be applied." "ERROR"
     }
 }
@@ -345,7 +350,8 @@ if (Test-Path $dwmapiPath) {
     catch {
         Write-Log "Could not remove dwmapi.dll. It might be in use or protected." "ERROR"
     }
-} else {
+}
+else {
     Write-Log "dwmapi.dll not found. System is clean." "INFO"
 }
 
