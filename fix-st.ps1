@@ -242,31 +242,31 @@ function Fix-Permissions-SetACL {
     $nativePath = $regPath.Replace("HKCU:\", "HKCU\").Replace("HKLM:\", "HKLM\")
 
     try {
-        Write-Log "Resetting permissions with SetACL (clean ACL)..." "STEP"
+        Write-Log "Resetting permissions with SetACL (SYSTEM owner + clean ACL)..." "STEP"
 
-        # 1) Owner -> current user (alt key dahil)
-        & $setAclPath -on $nativePath -ot reg -actn setowner -ownr "n:$env:USERNAME" -rec cont_obj *> $null
+        # 1) Owner -> SYSTEM (alt key dahil) (en stabil)
+        & $setAclPath -on $nativePath -ot reg -actn setowner -ownr "n:NT AUTHORITY\SYSTEM" -rec cont_obj *> $null
 
-        # 2) ACL'yi temizle (tüm ACE'leri sil)
-        # Not: SetACL'de "clear" işlemi actn: clearace ile yapılır.
+        # 2) Tüm ACE'leri temizle (RESTRICTED + özel izinler dahil her şey silinir)
         & $setAclPath -on $nativePath -ot reg -actn clearace -rec cont_obj *> $null
 
-        # 3) Koruma aç (inheritance kapalı) (daha stabil)
+        # 3) Inheritance kapat (DACL/SACL korumalı, dışarıdan miras yok)
         & $setAclPath -on $nativePath -ot reg -actn setprot -op "dacl:p_nc;sacl:p_nc" -rec cont_obj *> $null
 
-        # 4) Full Control ekle: USER / SYSTEM / Administrators
+        # 4) Sadece 3 tane Full Control bırak: SYSTEM / Administrators / Current User
+        & $setAclPath -on $nativePath -ot reg -actn ace -ace "n:NT AUTHORITY\SYSTEM;p:full" -rec cont_obj *> $null
+        & $setAclPath -on $nativePath -ot reg -actn ace -ace "n:BUILTIN\Administrators;p:full" -rec cont_obj *> $null
         & $setAclPath -on $nativePath -ot reg -actn ace -ace "n:$env:USERNAME;p:full" -rec cont_obj *> $null
-        & $setAclPath -on $nativePath -ot reg -actn ace -ace "n:SYSTEM;p:full" -rec cont_obj *> $null
-        & $setAclPath -on $nativePath -ot reg -actn ace -ace "n:Administrators;p:full" -rec cont_obj *> $null
 
-        Write-Log "Clean ACL applied (USER + SYSTEM + ADMIN full)." "SUCCESS"
+        Write-Log "ACL rebuilt: SYSTEM + Administrators + User = FULL (RESTRICTED removed)." "SUCCESS"
         return $true
 
     } catch {
-        Write-Log "SetACL failed." "ERROR"
+        Write-Log "SetACL failed: $_" "ERROR"
         return $false
     }
 }
+
 
 $success = $false
 
