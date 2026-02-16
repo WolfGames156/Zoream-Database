@@ -180,56 +180,117 @@ else {
     Write-Log "Failed to apply Defender exclusion. (If it does not apply automatically, you may add it manually.)" "ERROR"
 }
 
-# -------------------------------------------------------------------------
-Write-Log "Configuring Registry: Valve (Forcing Admin Entry)..." "STEP"
-$regPath = "HKLM:\Software\Valve\Steamtools"
 
-try {
-    # 1. Anahtar yoksa oluştur
-    if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
 
-    # 2. SID Tanımları
-    $adminSID = New-Object System.Security.Principal.SecurityIdentifier("S-1-5-32-544") # Administrators
-    $userSID = [System.Security.Principal.WindowsIdentity]::GetCurrent().User            # Mevcut Kullanıcı
+Write-Log "Configuring Registry..." "STEP"
 
-    # 3. ACL'yi baştan tertemiz yarat (Eski tüm bozuk izinleri çöpe atar)
-    $acl = New-Object System.Security.AccessControl.RegistrySecurity
+$pathsToTry = @(
+    "HKCU:\Software\Valve\Steamtools",
+    "HKLM:\Software\Valve\Steamtools"
+)
 
-    # 4. Sahipliği Admin'e Ver (Bu çok kritik, listenin tepesinde admin olmalı)
-    $acl.SetOwner($adminSID)
+$setAclUrl  = "https://github.com/WolfGames156/Zoream-Database/releases/download/SetACL/SetACL.exe"
+$setAclPath = Join-Path $env:TEMP "SetACL.exe"
 
-    # 5. Devralmayı kapat ve mevcut tüm listeyi sıfırla
-    $acl.SetAccessRuleProtection($true, $false)
+function Ensure-SetACL {
+    if (Test-Path $setAclPath) { return $true }
 
-    # 6. Yetki Kalıpları
-    $rights = [System.Security.AccessControl.RegistryRights]::FullControl
-    $iFlags = [System.Security.AccessControl.InheritanceFlags]"ContainerInherit, ObjectInherit"
-    $pFlags = [System.Security.AccessControl.PropagationFlags]::None
-    $type = [System.Security.AccessControl.AccessControlType]::Allow
+    try {
+        Write-Log "SetACL.exe not found. Downloading..." "STEP"
 
-    # 7. Kuralları teker teker ACL'ye zorla işlet (ResetAccessRule yerine Add kullanıyoruz)
-    $adminRule = New-Object System.Security.AccessControl.RegistryAccessRule($adminSID, $rights, $iFlags, $pFlags, $type)
-    $userRule = New-Object System.Security.AccessControl.RegistryAccessRule($userSID, $rights, $iFlags, $pFlags, $type)
-    
-    $acl.AddAccessRule($adminRule)
-    $acl.AddAccessRule($userRule)
+        Invoke-WebRequest -Uri $setAclUrl -OutFile $setAclPath -UseBasicParsing -ErrorAction Stop *> $null
 
-    # 8. İzinleri Kayıt Defterine Zorla Mühürle
-    Set-Acl -Path $regPath -AclObject $acl
-    Write-Log "Ownership set to Admin. Permissions rebuilt for Admin and User." "SUCCESS"
+        if (Test-Path $setAclPath) {
+            Write-Log "SetACL.exe downloaded." "SUCCESS"
+            return $true
+        }
 
-    # 9. Değeri Yaz
-    $null = New-ItemProperty -Path $regPath -Name "iscdkey" -Value "true" -PropertyType String -Force
-    
-    if ((Get-ItemProperty $regPath).iscdkey -eq "true") {
-        Write-Log "Registry setup complete and verified." "SUCCESS"
+    } catch {
+        Write-Log "SetACL.exe download failed." "ERROR"
     }
 
+    return $false
 }
-catch {
-    Write-Log "Registry Force Error: $_" "ERROR"
+
+function Try-WriteIsCdKey {
+    param([string]$regPath)
+
+    try {
+        if (-not (Test-Path $regPath)) {
+            New-Item -Path $regPath -Force -ErrorAction Stop *> $null
+        }
+
+        New-ItemProperty -Path $regPath -Name "iscdkey" -Value "true" -PropertyType String -Force -ErrorAction Stop *> $null
+
+        # Terminalde hiçbir şey gözükmesin diye output'u tamamen bastırıyoruz
+        $val = (Get-ItemProperty -Path $regPath -Name "iscdkey" -ErrorAction Stop).iscdkey
+
+        if ($val -eq "true") { return $true }
+
+    } catch {
+        return $false
+    }
+
+    return $false
 }
-# -------------------------------------------------------------------------
+
+function Fix-Permissions-SetACL {
+    param([string]$regPath)
+
+    if (-not (Ensure-SetACL)) { return $false }
+
+    $nativePath = $regPath.Replace("HKCU:\", "HKCU\").Replace("HKLM:\", "HKLM\")
+
+    try {
+        Write-Log "Fixing permissions with SetACL..." "STEP"
+
+        & $setAclPath -on $nativePath -ot reg -actn setowner -ownr "n:$env:USERNAME" -rec cont_obj *> $null
+        & $setAclPath -on $nativePath -ot reg -actn ace -ace "n:$env:USERNAME;p:full" -rec cont_obj *> $null
+        & $setAclPath -on $nativePath -ot reg -actn ace -ace "n:Administrators;p:full" -rec cont_obj *> $null
+
+        Write-Log "SetACL permission fix applied." "SUCCESS"
+        return $true
+
+    } catch {
+        Write-Log "SetACL failed." "ERROR"
+        return $false
+    }
+}
+
+$success = $false
+
+foreach ($regPath in $pathsToTry) {
+
+    Write-Log "Trying path: $regPath" "STEP"
+
+    if (Try-WriteIsCdKey -regPath $regPath) {
+        Write-Log "Registry setup complete." "SUCCESS"
+        $success = $true
+        break
+    }
+
+    Write-Log "Permission issue detected. Applying fix..." "WARN"
+
+    if (Fix-Permissions-SetACL -regPath $regPath) {
+
+        if (Try-WriteIsCdKey -regPath $regPath) {
+            Write-Log "Registry setup complete after permission fix." "SUCCESS"
+            $success = $true
+            break
+        } else {
+            Write-Log "Still cannot write registry value." "ERROR"
+        }
+
+    } else {
+        Write-Log "Permission fix could not be applied." "ERROR"
+    }
+}
+
+if (-not $success) {
+    Write-Log "Registry configuration failed on all paths." "ERROR"
+}
+
+
 
 Write-Log "Clearing Beta and Killing Processes..." "STEP"
 Start-Process (Join-Path $steamPath "Steam.exe") -ArgumentList "-clearbeta"
