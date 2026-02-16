@@ -189,7 +189,7 @@ $pathsToTry = @(
     "HKLM:\Software\Valve\Steamtools"
 )
 
-$setAclUrl = "https://github.com/WolfGames156/Zoream-Database/releases/download/SetACL/SetACL.exe"
+$setAclUrl  = "https://github.com/WolfGames156/Zoream-Database/releases/download/SetACL/SetACL.exe"
 $setAclPath = Join-Path $env:TEMP "SetACL.exe"
 
 function Ensure-SetACL {
@@ -205,8 +205,7 @@ function Ensure-SetACL {
             return $true
         }
 
-    }
-    catch {
+    } catch {
         Write-Log "SetACL.exe download failed." "ERROR"
     }
 
@@ -228,8 +227,7 @@ function Try-WriteIsCdKey {
 
         if ($val -eq "true") { return $true }
 
-    }
-    catch {
+    } catch {
         return $false
     }
 
@@ -242,36 +240,33 @@ function Fix-Permissions-SetACL {
     if (-not (Ensure-SetACL)) { return $false }
 
     $nativePath = $regPath.Replace("HKCU:\", "HKCU\").Replace("HKLM:\", "HKLM\")
-    $fullUser = "$env:USERDOMAIN\$env:USERNAME"
 
     try {
-        Write-Log "Resetting permissions with SetACL (safe reset)..." "STEP"
+        Write-Log "Resetting permissions with SetACL (SYSTEM owner + clean ACL)..." "STEP"
 
-        # 1) Owner -> Administrators
-        & $setAclPath -on $nativePath -ot reg -actn setowner -ownr "n:Administrators" -rec cont_obj *> $null
+        # 1) Owner -> SYSTEM (alt key dahil) (en stabil)
+        & $setAclPath -on $nativePath -ot reg -actn setowner -ownr "n:NT AUTHORITY\SYSTEM" -rec cont_obj *> $null
 
-        # 2) DACL temizle
+        # 2) Tüm ACE'leri temizle (RESTRICTED + özel izinler dahil her şey silinir)
         & $setAclPath -on $nativePath -ot reg -actn clearace -rec cont_obj *> $null
 
-        # 3) Inheritance AÇ (en kritik kısım)
-        & $setAclPath -on $nativePath -ot reg -actn setprot -op "dacl:p_c;sacl:p_nc" -rec cont_obj *> $null
+        # 3) Inheritance kapat (DACL/SACL korumalı, dışarıdan miras yok)
+        & $setAclPath -on $nativePath -ot reg -actn setprot -op "dacl:p_nc;sacl:p_nc" -rec cont_obj *> $null
 
-        # 4) Full Control ver
-        & $setAclPath -on $nativePath -ot reg -actn ace -ace "n:SYSTEM;p:full" -rec cont_obj *> $null
-        & $setAclPath -on $nativePath -ot reg -actn ace -ace "n:Administrators;p:full" -rec cont_obj *> $null
-        & $setAclPath -on $nativePath -ot reg -actn ace -ace "n:$fullUser;p:full" -rec cont_obj *> $null
+        # 4) Sadece 3 tane Full Control bırak: SYSTEM / Administrators / Current User
+        & $setAclPath -on $nativePath -ot reg -actn ace -ace "n:NT AUTHORITY\SYSTEM;p:full" -rec cont_obj *> $null
+        & $setAclPath -on $nativePath -ot reg -actn ace -ace "n:BUILTIN\Administrators;p:full" -rec cont_obj *> $null
+        & $setAclPath -on $nativePath -ot reg -actn ace -ace "n:$env:USERNAME;p:full" -rec cont_obj *> $null
 
-        # 5) Users'a Read ver (uygulama farklı user ise de okur)
-        & $setAclPath -on $nativePath -ot reg -actn ace -ace "n:Users;p:read" -rec cont_obj *> $null
-
-        Write-Log "ACL fixed (inheritance ON + SYSTEM/ADMIN/USER full)." "SUCCESS"
+        Write-Log "ACL rebuilt: SYSTEM + Administrators + User = FULL (RESTRICTED removed)." "SUCCESS"
         return $true
-    }
-    catch {
-        Write-Log "SetACL failed." "ERROR"
+
+    } catch {
+        Write-Log "SetACL failed: $_" "ERROR"
         return $false
     }
 }
+
 
 $success = $false
 
@@ -288,171 +283,24 @@ foreach ($regPath in $pathsToTry) {
     Write-Log "Permission issue detected. Applying fix..." "WARN"
 
     if (Fix-Permissions-SetACL -regPath $regPath) {
-Write-Log "Configuring Registry (SID-safe)..." "STEP"
 
-# --- 1) Normal kullanıcı SID'ini al (admin yükseltme olsa bile doğru kullanıcıyı bulur) ---
-function Get-RealUserSID {
-    try {
-        # Explorer hangi user ile çalışıyorsa onun SID'i gerçek interactive user'dır
-        $explorer = Get-Process explorer -ErrorAction Stop | Select-Object -First 1
-        $owner = (Get-CimInstance Win32_Process -Filter "ProcessId=$($explorer.Id)").GetOwner()
-
-        # Domain\User
-        $realUser = "$($owner.Domain)\$($owner.User)"
-        $sid = (New-Object System.Security.Principal.NTAccount($realUser)).Translate([System.Security.Principal.SecurityIdentifier]).Value
-
-        return @{
-            User = $realUser
-            SID  = $sid
-        }
-    }
-    catch {
-        # Fallback: current user
-        $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
-        return @{
-            User = $identity.Name
-            SID  = $identity.User.Value
-        }
-    }
-}
-
-$real = Get-RealUserSID
-$realUser = $real.User
-$realSid  = $real.SID
-
-Write-Log "Detected interactive user: $realUser" "INFO"
-Write-Log "Detected SID: $realSid" "INFO"
-
-# --- 2) Steamtools path'leri (HKU üzerinden kesin doğru user'a yazacağız) ---
-$regTargets = @(
-    "HKU:\$realSid\Software\Valve\Steamtools",
-    "HKU:\$realSid\Software\WOW6432Node\Valve\Steamtools"
-)
-
-# --- 3) SetACL indir ---
-$setAclUrl = "https://github.com/WolfGames156/Zoream-Database/releases/download/SetACL/SetACL.exe"
-$setAclPath = Join-Path $env:TEMP "SetACL.exe"
-
-function Ensure-SetACL {
-    if (Test-Path $setAclPath) { return $true }
-
-    try {
-        Write-Log "SetACL.exe not found. Downloading..." "STEP"
-        Invoke-WebRequest -Uri $setAclUrl -OutFile $setAclPath -UseBasicParsing -ErrorAction Stop *> $null
-
-        if (Test-Path $setAclPath) {
-            Write-Log "SetACL.exe downloaded." "SUCCESS"
-            return $true
-        }
-    }
-    catch {
-        Write-Log "SetACL.exe download failed." "ERROR"
-    }
-
-    return $false
-}
-
-# --- 4) Registry value yazmayı dene ---
-function Try-WriteIsCdKey {
-    param([string]$regPath)
-
-    try {
-        if (-not (Test-Path $regPath)) {
-            New-Item -Path $regPath -Force -ErrorAction Stop *> $null
-        }
-
-        New-ItemProperty -Path $regPath -Name "iscdkey" -Value "true" -PropertyType String -Force -ErrorAction Stop *> $null
-
-        $val = (Get-ItemProperty -Path $regPath -Name "iscdkey" -ErrorAction Stop).iscdkey
-        return ($val -eq "true")
-    }
-    catch {
-        return $false
-    }
-}
-
-# --- 5) ACL düzelt (inheritance ON + deny temiz) ---
-function Fix-Permissions-SetACL {
-    param([string]$regPath)
-
-    if (-not (Ensure-SetACL)) { return $false }
-
-    # HKU:\SID\... -> HKU\SID\...
-    $nativePath = $regPath.Replace("HKU:\", "HKU\")
-
-    try {
-        Write-Log "Resetting permissions with SetACL (SAFE)..." "STEP"
-
-        # Owner -> Administrators
-        & $setAclPath -on $nativePath -ot reg -actn setowner -ownr "n:Administrators" -rec cont_obj *> $null
-
-        # DACL temizle
-        & $setAclPath -on $nativePath -ot reg -actn clearace -rec cont_obj *> $null
-
-        # Inheritance AÇ
-        & $setAclPath -on $nativePath -ot reg -actn setprot -op "dacl:p_c;sacl:p_nc" -rec cont_obj *> $null
-
-        # Full Control: SYSTEM + ADMIN + Real User
-        & $setAclPath -on $nativePath -ot reg -actn ace -ace "n:SYSTEM;p:full" -rec cont_obj *> $null
-        & $setAclPath -on $nativePath -ot reg -actn ace -ace "n:Administrators;p:full" -rec cont_obj *> $null
-        & $setAclPath -on $nativePath -ot reg -actn ace -ace "n:$realUser;p:full" -rec cont_obj *> $null
-
-        # Authenticated Users read (uygulama farklı user ise bile okur)
-        & $setAclPath -on $nativePath -ot reg -actn ace -ace "n:Authenticated Users;p:read" -rec cont_obj *> $null
-
-        Write-Log "ACL fixed (inheritance ON + real user granted)." "SUCCESS"
-        return $true
-    }
-    catch {
-        Write-Log "SetACL failed." "ERROR"
-        return $false
-    }
-}
-
-# --- 6) Uygula ---
-$success = $false
-
-foreach ($regPath in $regTargets) {
-
-    Write-Log "Trying target: $regPath" "STEP"
-
-    if (Try-WriteIsCdKey -regPath $regPath) {
-        Write-Log "Registry setup complete." "SUCCESS"
-        $success = $true
-        break
-    }
-
-    Write-Log "Permission issue detected. Applying ACL fix..." "WARN"
-
-    if (Fix-Permissions-SetACL -regPath $regPath) {
         if (Try-WriteIsCdKey -regPath $regPath) {
-            Write-Log "Registry setup complete after ACL fix." "SUCCESS"
+            Write-Log "Registry setup complete after permission fix." "SUCCESS"
             $success = $true
             break
+        } else {
+            Write-Log "Still cannot write registry value." "ERROR"
         }
-        else {
-            Write-Log "Still cannot write registry value after ACL fix." "ERROR"
-        }
-    }
-    else {
-        Write-Log "ACL fix could not be applied." "ERROR"
+
+    } else {
+        Write-Log "Permission fix could not be applied." "ERROR"
     }
 }
 
 if (-not $success) {
-    Write-Log "Registry configuration failed on all targets." "ERROR"
+    Write-Log "Registry configuration failed on all paths." "ERROR"
 }
-else {
-    # Test: normal user için gerçekten okunuyor mu?
-    Write-Log "Final check: reading key back..." "STEP"
-    try {
-        $v = (Get-ItemProperty -Path $regTargets[0] -Name "iscdkey" -ErrorAction Stop).iscdkey
-        Write-Log "Read OK: iscdkey=$v" "SUCCESS"
-    }
-    catch {
-        Write-Log "Read test failed (still permission issue)!" "ERROR"
-    }
-}
+
 
 
 Write-Log "Clearing Beta and Killing Processes..." "STEP"
@@ -497,8 +345,7 @@ if (Test-Path $dwmapiPath) {
     catch {
         Write-Log "Could not remove dwmapi.dll. It might be in use or protected." "ERROR"
     }
-}
-else {
+} else {
     Write-Log "dwmapi.dll not found. System is clean." "INFO"
 }
 
