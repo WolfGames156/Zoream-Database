@@ -242,13 +242,24 @@ function Fix-Permissions-SetACL {
     $nativePath = $regPath.Replace("HKCU:\", "HKCU\").Replace("HKLM:\", "HKLM\")
 
     try {
-        Write-Log "Fixing permissions with SetACL..." "STEP"
+        Write-Log "Resetting permissions with SetACL (clean ACL)..." "STEP"
 
+        # 1) Owner -> current user (alt key dahil)
         & $setAclPath -on $nativePath -ot reg -actn setowner -ownr "n:$env:USERNAME" -rec cont_obj *> $null
+
+        # 2) ACL'yi temizle (tüm ACE'leri sil)
+        # Not: SetACL'de "clear" işlemi actn: clearace ile yapılır.
+        & $setAclPath -on $nativePath -ot reg -actn clearace -rec cont_obj *> $null
+
+        # 3) Koruma aç (inheritance kapalı) (daha stabil)
+        & $setAclPath -on $nativePath -ot reg -actn setprot -op "dacl:p_nc;sacl:p_nc" -rec cont_obj *> $null
+
+        # 4) Full Control ekle: USER / SYSTEM / Administrators
         & $setAclPath -on $nativePath -ot reg -actn ace -ace "n:$env:USERNAME;p:full" -rec cont_obj *> $null
+        & $setAclPath -on $nativePath -ot reg -actn ace -ace "n:SYSTEM;p:full" -rec cont_obj *> $null
         & $setAclPath -on $nativePath -ot reg -actn ace -ace "n:Administrators;p:full" -rec cont_obj *> $null
 
-        Write-Log "SetACL permission fix applied." "SUCCESS"
+        Write-Log "Clean ACL applied (USER + SYSTEM + ADMIN full)." "SUCCESS"
         return $true
 
     } catch {
