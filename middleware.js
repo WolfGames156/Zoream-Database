@@ -4,7 +4,7 @@
 const rateLimitMap = new Map();
 
 // Global rate limit: 10 req per 60s per IP
-const RATE_LIMIT = { limit: 10, window: 60000 };
+const RATE_LIMIT = { limit: 15, window: 60000 };
 
 function getClientIp(request) {
   const forwarded = request.headers.get('x-forwarded-for');
@@ -76,3 +76,4 @@ export default function middleware(request) {
 export const config = {
   matcher: '/:path*'
 };
+
