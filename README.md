@@ -1,2 +1,0 @@
-# hidzor
-hid.dll Zoream
