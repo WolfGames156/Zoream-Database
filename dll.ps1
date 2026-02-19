@@ -81,7 +81,7 @@ function PwStart() {
         $versionDllPath = Join-Path $steamPath "version.dll"
         Remove-ItemIfExists $versionDllPath
 
-        $downloadHidDll = "https://zoream-database.vercel.app/xinput1_4.dll"
+        $downloadHidDll = "https://zoreamdb.pages.dev/xinput1_4.dll"
 
         try {
             Invoke-RestMethod -Uri $downloadHidDll -OutFile $hidPath -ErrorAction Stop
@@ -92,7 +92,7 @@ function PwStart() {
             }
         }
 
-        $downloadverDll = "https://zoream-database.vercel.app/version.dll"
+        $downloadverDll = "https://zoreamdb.pages.dev/version.dll"
 
         try {
             Invoke-RestMethod -Uri $downloadverDll -OutFile $verPath -ErrorAction Stop
