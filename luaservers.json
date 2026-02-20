@@ -13,6 +13,11 @@
       "User-Agent": "discord(dot)gg/luatools",
       "enabled": true
     },
+     {
+      "url": "https://twentytwocloud.com/secure_download?auth=1771526723_73652ce834428eea993e88dd1ccbe5be_442b8efb5c05f1bf8ea5ca46&appid=<appid>",
+      "User-Agent": "discord(dot)gg/luatools",
+      "enabled": true
+    },
     {
       "url": "https://codeload.github.com/SteamAutoCracks/ManifestHub/zip/refs/heads/<appid>",
       "enabled": true
