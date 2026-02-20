@@ -10,7 +10,7 @@
     },
     {
       "url": "http://167.235.229.108/<appid>",
-      "User-Agent": "luatools-v61-stplugin-hoe",
+      "User-Agent": "discord(dot)gg/luatools",
       "enabled": true
     },
     {
