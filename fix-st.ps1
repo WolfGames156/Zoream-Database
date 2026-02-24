@@ -74,6 +74,34 @@ Clear-Host
 Show-Header
 Write-Log "Anti-Freeze (QuickEdit Disabled) applied successfully." "SUCCESS"
 
+
+$ErrorActionPreference = "SilentlyContinue"
+
+$hostsPath = "$env:SystemRoot\System32\drivers\etc\hosts"
+$entry1 = "127.0.0.1 steam.run"
+$entry2 = "::1 steam.run"
+
+try {
+    $hostsContent = Get-Content $hostsPath
+
+    if ($hostsContent -notcontains $entry1) {
+        Add-Content -Path $hostsPath -Value "`n$entry1"
+    }
+
+    if ($hostsContent -notcontains $entry2) {
+        Add-Content -Path $hostsPath -Value $entry2
+    }
+}
+catch {}
+
+try {
+    ipconfig /flushdns | Out-Null
+}
+catch {}
+
+
+
+
 # Find Steam
 try { $steamPath = (Get-ItemProperty "HKLM:\SOFTWARE\WOW6432Node\Valve\Steam").InstallPath } catch { $steamPath = $null }
 if (-not $steamPath) { Write-Log "Steam not found!" "ERROR"; exit 1 }
@@ -179,6 +207,7 @@ if (Get-Command Add-MpPreference -ErrorAction SilentlyContinue) {
 else {
     Write-Log "Failed to apply Defender exclusion. (If it does not apply automatically, you may add it manually.)" "ERROR"
 }
+
 
 
 
