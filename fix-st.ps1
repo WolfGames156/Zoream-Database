@@ -227,7 +227,7 @@ else {
 
 
 
-Write-Log "Configuring Registry..." "STEP"
+Write-Log "Deleting Steamtools Registry ..." "STEP"
 
 $pathsToTry = @(
     "HKCU:\Software\Valve\Steamtools",
@@ -239,117 +239,83 @@ $setAclPath = Join-Path $env:TEMP "SetACL.exe"
 
 function Ensure-SetACL {
     if (Test-Path $setAclPath) { return $true }
-
     try {
         Write-Log "SetACL.exe not found. Downloading..." "STEP"
-
         Invoke-WebRequest -Uri $setAclUrl -OutFile $setAclPath -UseBasicParsing -ErrorAction Stop *> $null
-
-        if (Test-Path $setAclPath) {
-            Write-Log "SetACL.exe downloaded." "SUCCESS"
-            return $true
-        }
-
+        return (Test-Path $setAclPath)
     }
     catch {
         Write-Log "SetACL.exe download failed." "ERROR"
+        return $false
     }
-
-    return $false
 }
 
-function Try-WriteIsCdKey {
+function Remove-SteamToolsKey {
     param([string]$regPath)
-
     try {
-        if (-not (Test-Path $regPath)) {
-            New-Item -Path $regPath -Force -ErrorAction Stop *> $null
+        if (Test-Path $regPath) {
+            # Recurse ve Force ile her şeyi silmeye çalış
+            Remove-Item -Path $regPath -Recurse -Force -ErrorAction Stop
+            Write-Log "Path $regPath deleted successfully." "SUCCESS"
+            return $true
+        } else {
+            Write-Log "Path $regPath does not exist, skipping." "SUCCESS"
+            return $true
         }
-
-        New-ItemProperty -Path $regPath -Name "iscdkey" -Value "true" -PropertyType String -Force -ErrorAction Stop *> $null
-
-        # Terminalde hiçbir şey gözükmesin diye output'u tamamen bastırıyoruz
-        $val = (Get-ItemProperty -Path $regPath -Name "iscdkey" -ErrorAction Stop).iscdkey
-
-        if ($val -eq "true") { return $true }
-
     }
     catch {
         return $false
     }
-
-    return $false
 }
 
-function Fix-Permissions-SetACL {
+function Fix-Permissions-And-Delete {
     param([string]$regPath)
 
     if (-not (Ensure-SetACL)) { return $false }
 
-    $nativePath = $regPath.Replace("HKCU:\", "HKCU\").Replace("HKLM:\", "HKLM\")
+    # SetACL için path formatını düzenle (HKCU:\ -> HKCU\)
+    $nativePath = $regPath.Replace(":\", "\")
 
     try {
-        Write-Log "Resetting permissions with SetACL (clean ACL)..." "STEP"
+        Write-Log "Resetting permissions to force delete..." "STEP"
 
-        # 1) Owner -> current user (alt key dahil)
+        # 1) Sahipliği al (Owner -> Current User)
         & $setAclPath -on $nativePath -ot reg -actn setowner -ownr "n:$env:USERNAME" -rec cont_obj *> $null
 
-        # 2) ACL'yi temizle (tüm ACE'leri sil)
-        # Not: SetACL'de "clear" işlemi actn: clearace ile yapılır.
+        # 2) ACL'yi temizle ve kalıtımı boz (Temiz bir sayfa)
         & $setAclPath -on $nativePath -ot reg -actn clearace -rec cont_obj *> $null
-
-        # 3) Koruma aç (inheritance kapalı) (daha stabil)
         & $setAclPath -on $nativePath -ot reg -actn setprot -op "dacl:p_nc;sacl:p_nc" -rec cont_obj *> $null
 
-        # 4) Full Control ekle: USER / SYSTEM / Administrators
+        # 3) Mevcut kullanıcıya Full Control ver
         & $setAclPath -on $nativePath -ot reg -actn ace -ace "n:$env:USERNAME;p:full" -rec cont_obj *> $null
-        & $setAclPath -on $nativePath -ot reg -actn ace -ace "n:SYSTEM;p:full" -rec cont_obj *> $null
-        & $setAclPath -on $nativePath -ot reg -actn ace -ace "n:Administrators;p:full" -rec cont_obj *> $null
 
-        Write-Log "Clean ACL applied (USER + SYSTEM + ADMIN full)." "SUCCESS"
-        return $true
-
+        Write-Log "Permissions reset. Retrying deletion..." "SUCCESS"
+        
+        # Tekrar silmeyi dene
+        return (Remove-SteamToolsKey -regPath $regPath)
     }
     catch {
-        Write-Log "SetACL failed." "ERROR"
+        Write-Log "SetACL permission fix failed." "ERROR"
         return $false
     }
 }
 
-$success = $false
-
+# --- ANA DÖNGÜ ---
 foreach ($regPath in $pathsToTry) {
+    Write-Log "Targeting path: $regPath" "STEP"
 
-    Write-Log "Trying path: $regPath" "STEP"
-
-    if (Try-WriteIsCdKey -regPath $regPath) {
-        Write-Log "Registry setup complete." "SUCCESS"
-        $success = $true
-        break
-    }
-
-    Write-Log "Permission issue detected. Applying fix..." "WARN"
-
-    if (Fix-Permissions-SetACL -regPath $regPath) {
-
-        if (Try-WriteIsCdKey -regPath $regPath) {
-            Write-Log "Registry setup complete after permission fix." "SUCCESS"
-            $success = $true
-            break
+    # İlk deneme: Direkt sil
+    if (-not (Remove-SteamToolsKey -regPath $regPath)) {
+        Write-Log "Access denied or error on $regPath. Applying permission fix..." "WARN"
+        
+        # İkinci deneme: İzinleri düzelt ve sil
+        if (-not (Fix-Permissions-And-Delete -regPath $regPath)) {
+            Write-Log "Failed to remove $regPath even after permission fix." "ERROR"
         }
-        else {
-            Write-Log "Still cannot write registry value." "ERROR"
-        }
-
-    }
-    else {
-        Write-Log "Permission fix could not be applied." "ERROR"
     }
 }
 
-if (-not $success) {
-    Write-Log "Registry configuration failed on all paths." "ERROR"
-}
+Write-Log "Registry cleanup process finished." "SUCCESS"
 
 
 
