@@ -75,31 +75,47 @@ Show-Header
 Write-Log "Anti-Freeze (QuickEdit Disabled) applied successfully." "SUCCESS"
 
 
+
 $ErrorActionPreference = "SilentlyContinue"
-
 $hostsPath = "$env:SystemRoot\System32\drivers\etc\hosts"
-$entry1 = "127.0.0.1 steam.run"
-$entry2 = "::1 steam.run"
+
+# Tutulacak (İzin verilen) girişler
+$allowedEntries = @(
+    "127.0.0.1 steam.run",
+    "::1 steam.run",
+    "127.0.0.1 api.paradisedev.org",
+    "::1 api.paradisedev.org",
+    "127.0.0.1 paradisedev.org",
+    "::1 paradisedev.org"
+)
 
 try {
-    $hostsContent = Get-Content $hostsPath
+    # 1. Mevcut dosyayı oku, yorum satırlarını (#) koru ama diğer yönlendirmeleri temizle
+    $oldContent = Get-Content $hostsPath
+    $newContent = New-Object System.Collections.Generic.List[string]
 
-    if ($hostsContent -notcontains $entry1) {
-        Add-Content -Path $hostsPath -Value "`n$entry1"
+    foreach ($line in $oldContent) {
+        # Yorum satırlarını veya boş satırları olduğu gibi bırak (Sistem sağlığı için)
+        if ($line.Trim().StartsWith("#") -or [string]::IsNullOrWhiteSpace($line)) {
+            $newContent.Add($line)
+        }
     }
 
-    if ($hostsContent -notcontains $entry2) {
-        Add-Content -Path $hostsPath -Value $entry2
+    # 2. Sadece senin istediğin 2 ana domain ve local IP'lerini ekle
+    foreach ($entry in $allowedEntries) {
+        $newContent.Add($entry)
     }
-}
-catch {}
 
-try {
+    # 3. Dosyayı üzerine yaz
+    $newContent | Set-Content $hostsPath -Force
+
+    # 4. DNS Önbelleğini temizle
     ipconfig /flushdns | Out-Null
+    
 }
-catch {}
+catch {
 
-
+  }
 
 
 # Find Steam
