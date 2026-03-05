@@ -332,22 +332,7 @@ if (Test-Path (Join-Path $steamPath "appcache")) {
     Move-Item (Join-Path $steamPath "appcache") (Join-Path $backupPath "appcache") -Force -ErrorAction SilentlyContinue
 }
 
-$userdataPath = Join-Path $steamPath "userdata"
-if (Test-Path $userdataPath) {
-    Write-Log "Optimizing user data..." "STEP"
-    foreach ($user in Get-ChildItem $userdataPath -Directory) {
-        $config = Join-Path $user.FullName "config"
-        if (Test-Path $config) {
-            $uBack = Join-Path $backupPath ("userdata\" + $user.Name)
-            New-Item -ItemType Directory -Path $uBack -Force | Out-Null
-            Move-Item $config $uBack -Force -ErrorAction SilentlyContinue
-            New-Item -ItemType Directory -Path $config -Force | Out-Null
-            if (Test-Path (Join-Path $uBack "config\localconfig.vdf")) {
-                Copy-Item (Join-Path $uBack "config\localconfig.vdf") (Join-Path $config "localconfig.vdf") -Force
-            }
-        }
-    }
-}
+
 
 # Steam kapandıktan hemen sonra dwmapi.dll kontrolü ve temizliği
 Write-Log "Checking for unauthorized DLLs (dwmapi.dll)..." "STEP"
