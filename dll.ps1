@@ -56,6 +56,12 @@ if (-not (Test-Path $steamPath -PathType Container)) {
 $steamConfigPath = Join-Path $steamPath "config"
 $hidPath = Join-Path $steamPath "xinput1_4.dll"
 $verPath = Join-Path $steamPath "version.dll"
+        if (Test-Path $verPath) {
+            Start-Process cmd -ArgumentList "/c attrib -s -h -r `"$verPath`"" -WindowStyle Hidden -Wait
+            # Alternatif PowerShell native komutu: 
+            # Set-ItemProperty -Path $versionDllPath -Name Attributes -Value "Normal" -ErrorAction SilentlyContinue
+        }
+Remove-ItemIfExists $verPath
 Remove-ItemIfExists $hidPath
 
 function PwStart() {
