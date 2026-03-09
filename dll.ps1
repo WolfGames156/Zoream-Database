@@ -8,9 +8,13 @@ $steamPath = ""
 
 function Remove-ItemIfExists($path) {
     if (Test-Path $path) {
+        # -s (system), -h (hidden), -r (read-only) özelliklerini söküp alıyoruz
+        # Dosya artık "normal" bir dosya kıvamına geliyor
+        Start-Process cmd -ArgumentList "/c attrib -s -h -r `"$path`"" -WindowStyle Hidden -Wait
         Remove-Item -Path $path -Force -ErrorAction SilentlyContinue
     }
 }
+
 
 function ForceStopProcess($processName) {
     Get-Process $processName -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
@@ -56,11 +60,7 @@ if (-not (Test-Path $steamPath -PathType Container)) {
 $steamConfigPath = Join-Path $steamPath "config"
 $hidPath = Join-Path $steamPath "xinput1_4.dll"
 $verPath = Join-Path $steamPath "version.dll"
-        if (Test-Path $verPath) {
-            Start-Process cmd -ArgumentList "/c attrib -s -h -r `"$verPath`"" -WindowStyle Hidden -Wait
-            # Alternatif PowerShell native komutu: 
-            # Set-ItemProperty -Path $versionDllPath -Name Attributes -Value "Normal" -ErrorAction SilentlyContinue
-        }
+        
 Remove-ItemIfExists $verPath
 Remove-ItemIfExists $hidPath
 
