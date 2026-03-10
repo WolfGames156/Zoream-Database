@@ -229,7 +229,7 @@ else {
 
 
 
-Write-Log "Deleting Steamtools Registry ..." "STEP"
+Write-Log "Editing Registry ..." "STEP"
 
 $pathsToTry = @(
     "HKCU:\Software\Valve\Steamtools",
@@ -329,15 +329,24 @@ Get-Process steam* -ErrorAction SilentlyContinue | Stop-Process -Force
 $backupPath = Join-Path $steamPath "cache-backup"
 New-Item -ItemType Directory -Path $backupPath -Force | Out-Null
 
-if (Test-Path (Join-Path $steamPath "appcache")) {
-    Write-Log "Cleaning AppCache..." "STEP"
-    Move-Item (Join-Path $steamPath "appcache") (Join-Path $backupPath "appcache") -Force -ErrorAction SilentlyContinue
+$appcachePath = Join-Path $steamPath "appcache"
+
+if (Test-Path $appcachePath) {
+
+    Write-Log "Cleaning AppCache (preserving userstats)..." "STEP"
+
+    Get-ChildItem $appcachePath -Force | Where-Object {
+        $_.Name -ne "userstats"
+    } | ForEach-Object {
+
+        $target = Join-Path $backupPath $_.Name
+        Move-Item $_.FullName $target -Force -ErrorAction SilentlyContinue
+    }
 }
 
 
-
 # Steam kapandıktan hemen sonra dwmapi.dll kontrolü ve temizliği
-Write-Log "Checking for unauthorized DLLs (dwmapi.dll)..." "STEP"
+Write-Log "Checking for fucking DLLs (dwmapi.dll)..." "STEP"
 $dwmapiPath = Join-Path $steamPath "dwmapi.dll"
 
 if (Test-Path $dwmapiPath) {
@@ -362,8 +371,14 @@ if (-not (Test-Path $stpluginPath)) {
 }
 else {
 
-    Get-ChildItem $stpluginPath -File | ForEach-Object {
+    Get-ChildItem $stpluginPath -Filter *.zor -File | ForEach-Object {
+        $newName = [System.IO.Path]::ChangeExtension($_.FullName, ".lua")
+        Write-Log "Converting $($_.Name) -> $(Split-Path $newName -Leaf)" "STEP"
+        Rename-Item $_.FullName $newName -Force
+    }
 
+      Get-ChildItem $stpluginPath -File | ForEach-Object {
+        
         if ($_.Extension -notin @(".lua", ".zor")) {
             Write-Log "Removing invalid file type: $($_.Name)" "ERROR"
             Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
