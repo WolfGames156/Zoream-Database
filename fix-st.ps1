@@ -333,10 +333,10 @@ $appcachePath = Join-Path $steamPath "appcache"
 
 if (Test-Path $appcachePath) {
 
-    Write-Log "Cleaning AppCache (preserving userstats)..." "STEP"
+    Write-Log "Cleaning AppCache (preserving stats)..." "STEP"
 
     Get-ChildItem $appcachePath -Force | Where-Object {
-        $_.Name -ne "userstats"
+        $_.Name -ne "stats"
     } | ForEach-Object {
 
         $target = Join-Path $backupPath $_.Name
