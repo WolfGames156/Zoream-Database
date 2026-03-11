@@ -346,21 +346,35 @@ if (Test-Path $appcachePath) {
 
 
 # Steam kapandıktan hemen sonra dwmapi.dll kontrolü ve temizliği
-Write-Log "Checking for fucking DLLs (dwmapi.dll)..." "STEP"
-$dwmapiPath = Join-Path $steamPath "dwmapi.dll"
+Write-Log "Checking for fucking DLLs (xinput1_4.dll)..." "STEP"
+$dwmapiPath = Join-Path $steamPath "xinput1_4.dll"
 
 if (Test-Path $dwmapiPath) {
     try {
         Remove-Item $dwmapiPath -Force -ErrorAction Stop
-        Write-Log "dwmapi.dll found and successfully removed." "SUCCESS"
+        Write-Log "DLL found and successfully removed." "SUCCESS"
     }
     catch {
-        Write-Log "Could not remove dwmapi.dll. It might be in use or protected." "ERROR"
+        Write-Log "Could not remove dll. It might be in use or protected." "ERROR"
     }
 }
 else {
-    Write-Log "dwmapi.dll not found. System is clean." "INFO"
+    Write-Log "dll not found. System is clean." "INFO"
 }
+
+
+
+$dwmapiPath2 = Join-Path $steamPath "dwmapi.dll"
+
+if (Test-Path $dwmapiPath2) {
+    try {
+        Remove-Item $dwmapiPath2 -Force -ErrorAction Stop
+    }
+    catch {
+        Write-Log "Could not remove dll. " "ERROR"
+    }
+}
+
 
 
 Write-Log "Validating and Cleaning stplug-in folder..." "STEP"
