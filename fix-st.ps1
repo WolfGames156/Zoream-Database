@@ -355,25 +355,16 @@ if (Test-Path $dwmapiPath) {
         Write-Log "DLL found and successfully removed." "SUCCESS"
     }
     catch {
-        Write-Log "Could not remove dll. It might be in use or protected." "ERROR"
+        Write-Log "Could not remove DLL. It might be in use or protected." "ERROR"
     }
 }
 else {
-    Write-Log "dll not found. System is clean." "INFO"
+    Write-Log "DLL not found. System is clean." "INFO"
 }
 
 
 
-$dwmapiPath2 = Join-Path $steamPath "dwmapi.dll"
 
-if (Test-Path $dwmapiPath2) {
-    try {
-        Remove-Item $dwmapiPath2 -Force -ErrorAction Stop
-    }
-    catch {
-        Write-Log "Could not remove dll. " "ERROR"
-    }
-}
 
 
 
