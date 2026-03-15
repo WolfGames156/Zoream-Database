@@ -243,86 +243,101 @@ New-Item -ItemType Directory -Path $backupPath -Force | Out-Null
 $appcachePath = Join-Path $steamPath "appcache"
 
 if (Test-Path $appcachePath) {
-
-    Write-Log "Cleaning AppCache (preserving stats)..." "STEP"
-
-    Get-ChildItem $appcachePath -Force | Where-Object {
-        $_.Name -ne "stats"
-    } | ForEach-Object {
-
+    Write-Log "Cleaning AppCache (including stats)..." "STEP"
+    
+    # Eskiden stats'ı hariç tutan filtreyi kaldırdım, artık her şeyi backup'a taşıyor/siliyor
+    Get-ChildItem $appcachePath -Force | ForEach-Object {
         $target = Join-Path $backupPath $_.Name
         Move-Item $_.FullName $target -Force -ErrorAction SilentlyContinue
     }
 }
 
+# --- Ek Temizlik Kısmı ---
+Write-Log "Cleaning Steam Beta and Tencent leftovers..." "STEP"
 
-
-
-
-
-
-
-
-Write-Log "Validating and Cleaning stplug-in folder..." "STEP"
-$stpluginPath = Join-Path $steamPath "config\stplug-in"
-
-if (-not (Test-Path $stpluginPath)) {
-    Write-Log "stplug-in folder does not exist!" "WARN"
+# Steam Beta klasörünü kökten temizle
+$steamBetaPath = Join-Path $steamPath "package\beta"
+if (Test-Path $steamBetaPath) {
+    Remove-Item $steamBetaPath -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Log "Steam Beta folder removed." "SUCCESS"
 }
-else {
 
-    Get-ChildItem $stpluginPath -Filter *.zor -File | ForEach-Object {
-        $newName = [System.IO.Path]::ChangeExtension($_.FullName, ".lua")
-        Write-Log "Converting $($_.Name) -> $(Split-Path $newName -Leaf)" "STEP"
-        Rename-Item $_.FullName $newName -Force
+# Tencent kalıntılarını kökten temizle
+$tencentPath = Join-Path $env:LOCALAPPDATA "Microsoft\Tencent"
+if (Test-Path $tencentPath) {
+    Remove-Item $tencentPath -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Log "Tencent cache folder removed." "SUCCESS"
+}
+
+
+
+
+
+
+
+
+Write-Log "Validating and Cleaning gamesdata folder..." "STEP"
+
+# Yeni dosya yolu tanımı (%appdata%\Zoream\gamesdata)
+$zoreamAppData = Join-Path $env:APPDATA "Zoream"
+$stpluginPath = Join-Path $zoreamAppData "gamesdata"
+
+# Klasör yoksa oluştur
+if (-not (Test-Path $stpluginPath)) {
+    Write-Log "Creating gamesdata folder at $stpluginPath" "INFO"
+    New-Item -ItemType Directory -Path $stpluginPath -Force | Out-Null
+}
+
+# .zor uzantılı dosyaları bul ve .lua'ya çevir
+Get-ChildItem $stpluginPath -Filter *.zor -File | ForEach-Object {
+    $newName = [System.IO.Path]::ChangeExtension($_.FullName, ".lua")
+    Write-Log "Converting $($_.Name) -> $(Split-Path $newName -Leaf)" "STEP"
+    # Eğer aynı isimde .lua varsa üzerine yazmak için -Force ekledik
+    Rename-Item $_.FullName $newName -Force
+}
+
+# Geçersiz dosyaları temizle (Sadece .lua ve .zor kalsın)
+Get-ChildItem $stpluginPath -File | ForEach-Object {
+    if ($_.Extension -notin @(".lua", ".zor")) {
+        Write-Log "Removing invalid file type: $($_.Name)" "ERROR"
+        Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
+    }
+}
+
+# İçerik doğrulama fonksiyonu (Aynen korundu)
+function Test-ValidLuaLine {
+    param([string]$Line)
+    $trimmed = $Line.Trim()
+    if ([string]::IsNullOrWhiteSpace($trimmed)) { return $true }
+    if ($trimmed.StartsWith('-')) { return $true }
+    if ($trimmed -match '^(?i)(addappid|setManifestid|addtoken)') {
+        if ($trimmed -match '\(' -and $trimmed -match '\)') {
+            return $true
+        }
+    }
+    return $false
+}
+
+# Dosya içeriğini kontrol et ve temizle
+Get-ChildItem $stpluginPath -File | Where-Object {
+    $_.Extension -in @(".lua", ".zor")
+} | ForEach-Object {
+    $lines = Get-Content $_.FullName
+    $isClean = $true
+
+    foreach ($l in $lines) {
+        if (-not (Test-ValidLuaLine $l)) {
+            $isClean = $false
+            break
+        }
     }
 
-      Get-ChildItem $stpluginPath -File | ForEach-Object {
-        
-        if ($_.Extension -notin @(".lua", ".zor")) {
-            Write-Log "Removing invalid file type: $($_.Name)" "ERROR"
-            Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
-        }
+    if ($isClean) {
+        Write-Log "Validated: $($_.Name)" "SUCCESS"
     }
-
-    function Test-ValidLuaLine {
-        param([string]$Line)
-
-        $trimmed = $Line.Trim()
-
-        if ([string]::IsNullOrWhiteSpace($trimmed)) { return $true }
-        if ($trimmed.StartsWith('-')) { return $true }
-
-        if ($trimmed -match '^(?i)(addappid|setManifestid|addtoken)') {
-            if ($trimmed -match '\(' -and $trimmed -match '\)') {
-                return $true
-            }
-        }
-
-        return $false
-    }
-
-    Get-ChildItem $stpluginPath -File | Where-Object {
-        $_.Extension -in @(".lua", ".zor")
-    } | ForEach-Object {
-
-        $lines = Get-Content $_.FullName
-        $isClean = $true
-
-        foreach ($l in $lines) {
-            if (-not (Test-ValidLuaLine $l)) {
-                $isClean = $false
-                break
-            }
-        }
-
-        if ($isClean) {
-            Write-Log "Validated: $($_.Name)" "SUCCESS"
-        }
-        else {
-            Write-Log "Invalid content detected! Deleting: $($_.Name)" "ERROR"
-            Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
-        }
+    else {
+        Write-Log "Invalid content detected! Deleting: $($_.Name)" "ERROR"
+        Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
     }
 }
 
