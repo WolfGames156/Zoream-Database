@@ -282,6 +282,14 @@ Write-Log "Validating and Cleaning gamesdata folder..." "STEP"
 $zoreamAppData = Join-Path $env:APPDATA "Zoream"
 $stpluginPath = Join-Path $zoreamAppData "gamesdata"
 
+# --- EKLENEN KISIM: Gizli ve Sistem dosyalarını görünür yap ---
+if (Test-Path $stpluginPath) {
+    Write-Log "Unlocking hidden/system files in gamesdata..." "STEP"
+    # /S: Alt klasörler, /D: Klasörlerin kendisi, -s: Sistem özniteliğini kaldır, -h: Gizli özniteliğini kaldır
+    attrib -s -h "$stpluginPath\*" /S /D
+}
+# -----------------------------------------------------------
+
 # Klasör yoksa oluştur
 if (-not (Test-Path $stpluginPath)) {
     Write-Log "Creating gamesdata folder at $stpluginPath" "INFO"
@@ -289,20 +297,20 @@ if (-not (Test-Path $stpluginPath)) {
 }
 
 # .zor uzantılı dosyaları bul ve .lua'ya çevir
-Get-ChildItem $stpluginPath -Filter *.zor -File | ForEach-Object {
+Get-ChildItem $stpluginPath -Filter *.zor -File -Force | ForEach-Object { # -Force eklendi
     $newName = [System.IO.Path]::ChangeExtension($_.FullName, ".lua")
     Write-Log "Converting $($_.Name) -> $(Split-Path $newName -Leaf)" "STEP"
-    # Eğer aynı isimde .lua varsa üzerine yazmak için -Force ekledik
     Rename-Item $_.FullName $newName -Force
 }
 
 # Geçersiz dosyaları temizle (Sadece .lua ve .zor kalsın)
-Get-ChildItem $stpluginPath -File | ForEach-Object {
+Get-ChildItem $stpluginPath -File -Force | ForEach-Object { # -Force eklendi
     if ($_.Extension -notin @(".lua", ".zor")) {
         Write-Log "Removing invalid file type: $($_.Name)" "ERROR"
         Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
     }
 }
+
 
 # İçerik doğrulama fonksiyonu (Aynen korundu)
 function Test-ValidLuaLine {
