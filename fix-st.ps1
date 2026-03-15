@@ -271,6 +271,51 @@ if (Test-Path $tencentPath) {
 
 
 
+Write-Log "Configuring stplug-in link..." "STEP"
+
+$steamConfigPath = Join-Path $steamPath "config"
+$stpluginPath = Join-Path $steamConfigPath "stplug-in"
+$gamesDataPath = Join-Path $env:APPDATA "Zoream\gamesdata"
+
+# Hedef gamesdata klasörü yoksa oluştur
+if (-not (Test-Path $gamesDataPath)) {
+    New-Item -ItemType Directory -Path $gamesDataPath -Force | Out-Null
+}
+
+if (Test-Path $stpluginPath) {
+    # Önce öznitelikleri kaldır (görünür kıl)
+    attrib -s -h "$stpluginPath\*" /S /D /L
+    
+    $item = Get-Item $stpluginPath
+    
+    # Eğer klasör bir link değilse veya link ama yanlış yere gidiyorsa
+    if (-not $item.Attributes.HasFlag([System.IO.FileAttributes]::ReparsePoint)) {
+        
+        Get-ChildItem $stpluginPath -Force | ForEach-Object {
+            $dest = Join-Path $gamesDataPath $_.Name
+            # Dosya zaten varsa üzerine yaz
+            Move-Item $_.FullName -Destination $dest -Force
+        }
+        
+        # Orijinal klasörü sil
+        Remove-Item $stpluginPath -Recurse -Force
+        
+        # Sembolik linki oluştur (Junction)
+        New-Item -ItemType Junction -Path $stpluginPath -Target $gamesDataPath | Out-Null
+        attrib -s -h "$stpluginPath\*" /S /D /L
+        
+        
+    }
+    
+}
+else {
+    
+    New-Item -ItemType Junction -Path $stpluginPath -Target $gamesDataPath | Out-Null
+    attrib -s -h "$stpluginPath\*" /S /D /L
+    
+}
+
+
 
 
 
@@ -291,10 +336,6 @@ if (Test-Path $stpluginPath) {
 # -----------------------------------------------------------
 
 # Klasör yoksa oluştur
-if (-not (Test-Path $stpluginPath)) {
-    Write-Log "Creating gamesdata folder at $stpluginPath" "INFO"
-    New-Item -ItemType Directory -Path $stpluginPath -Force | Out-Null
-}
 
 # .zor uzantılı dosyaları bul ve .lua'ya çevir
 Get-ChildItem $stpluginPath -Filter *.zor -File -Force | ForEach-Object { # -Force eklendi
