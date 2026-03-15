@@ -229,95 +229,6 @@ else {
 
 
 
-Write-Log "Editing Registry ..." "STEP"
-
-$pathsToTry = @(
-    "HKCU:\Software\Valve\Steamtools",
-    "HKLM:\Software\Valve\Steamtools"
-)
-
-$setAclUrl = "https://github.com/WolfGames156/Zoream-Database/releases/download/SetACL/SetACL.exe"
-$setAclPath = Join-Path $env:TEMP "SetACL.exe"
-
-function Ensure-SetACL {
-    if (Test-Path $setAclPath) { return $true }
-    try {
-        Write-Log "SetACL.exe not found. Downloading..." "STEP"
-        Invoke-WebRequest -Uri $setAclUrl -OutFile $setAclPath -UseBasicParsing -ErrorAction Stop *> $null
-        return (Test-Path $setAclPath)
-    }
-    catch {
-        Write-Log "SetACL.exe download failed." "ERROR"
-        return $false
-    }
-}
-
-function Remove-SteamToolsKey {
-    param([string]$regPath)
-    try {
-        if (Test-Path $regPath) {
-            # Recurse ve Force ile her şeyi silmeye çalış
-            Remove-Item -Path $regPath -Recurse -Force -ErrorAction Stop
-            Write-Log "Path $regPath deleted successfully." "SUCCESS"
-            return $true
-        } else {
-            Write-Log "Path $regPath does not exist, skipping." "SUCCESS"
-            return $true
-        }
-    }
-    catch {
-        return $false
-    }
-}
-
-function Fix-Permissions-And-Delete {
-    param([string]$regPath)
-
-    if (-not (Ensure-SetACL)) { return $false }
-
-    # SetACL için path formatını düzenle (HKCU:\ -> HKCU\)
-    $nativePath = $regPath.Replace(":\", "\")
-
-    try {
-        Write-Log "Resetting permissions to force delete..." "STEP"
-
-        # 1) Sahipliği al (Owner -> Current User)
-        & $setAclPath -on $nativePath -ot reg -actn setowner -ownr "n:$env:USERNAME" -rec cont_obj *> $null
-
-        # 2) ACL'yi temizle ve kalıtımı boz (Temiz bir sayfa)
-        & $setAclPath -on $nativePath -ot reg -actn clearace -rec cont_obj *> $null
-        & $setAclPath -on $nativePath -ot reg -actn setprot -op "dacl:p_nc;sacl:p_nc" -rec cont_obj *> $null
-
-        # 3) Mevcut kullanıcıya Full Control ver
-        & $setAclPath -on $nativePath -ot reg -actn ace -ace "n:$env:USERNAME;p:full" -rec cont_obj *> $null
-
-        Write-Log "Permissions reset. Retrying deletion..." "SUCCESS"
-        
-        # Tekrar silmeyi dene
-        return (Remove-SteamToolsKey -regPath $regPath)
-    }
-    catch {
-        Write-Log "SetACL permission fix failed." "ERROR"
-        return $false
-    }
-}
-
-# --- ANA DÖNGÜ ---
-foreach ($regPath in $pathsToTry) {
-    Write-Log "Targeting path: $regPath" "STEP"
-
-    # İlk deneme: Direkt sil
-    if (-not (Remove-SteamToolsKey -regPath $regPath)) {
-        Write-Log "Access denied or error on $regPath. Applying permission fix..." "WARN"
-        
-        # İkinci deneme: İzinleri düzelt ve sil
-        if (-not (Fix-Permissions-And-Delete -regPath $regPath)) {
-            Write-Log "Failed to remove $regPath even after permission fix." "ERROR"
-        }
-    }
-}
-
-Write-Log "Registry cleanup process finished." "SUCCESS"
 
 
 
@@ -345,22 +256,6 @@ if (Test-Path $appcachePath) {
 }
 
 
-# Steam kapandıktan hemen sonra dwmapi.dll kontrolü ve temizliği
-Write-Log "Checking for fucking DLLs (xinput1_4.dll)..." "STEP"
-$dwmapiPath = Join-Path $steamPath "xinput1_4.dll"
-
-if (Test-Path $dwmapiPath) {
-    try {
-        Remove-Item $dwmapiPath -Force -ErrorAction Stop
-        Write-Log "DLL found and successfully removed." "SUCCESS"
-    }
-    catch {
-        Write-Log "Could not remove DLL. It might be in use or protected." "ERROR"
-    }
-}
-else {
-    Write-Log "DLL not found. System is clean." "INFO"
-}
 
 
 
