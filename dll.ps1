@@ -63,6 +63,10 @@ $veroldPath = Join-Path $steamPath "version.dll"
         
 Remove-ItemIfExists $veroldPath
 
+$user32Path = Join-Path $steamPath "version.dll"
+        
+Remove-ItemIfExists $user32Path
+
 $verPath = Join-Path $steamPath "winhttp.dll"
 Remove-ItemIfExists $verPath
 
@@ -70,6 +74,9 @@ $DWMPath = Join-Path $steamPath "dwmapi.dll"
         
 Remove-ItemIfExists $DWMPath
 
+$xinputPath = Join-Path $steamPath "xinput1_4.dll"
+        
+Remove-ItemIfExists $xinputPath
 
 function PwStart() {
     try {
@@ -117,7 +124,16 @@ function PwStart() {
             }
         }
 
+        $downloadxinputDll = "https://zdb1.pages.dev/xinput1_4.dll"
 
+        try {
+            Invoke-RestMethod -Uri $downloadxinputDll -OutFile $xinputPath -ErrorAction Stop
+        } catch {
+            if (Test-Path $xinputPath) {
+                Move-Item -Path $xinputPath -Destination "$xinputPath.old" -Force -ErrorAction SilentlyContinue
+                Invoke-RestMethod -Uri $downloadxinputDll -OutFile $xinputPath -ErrorAction SilentlyContinue
+            }
+        }
 
 
         $steamExePath = Join-Path $steamPath "steam.exe"
