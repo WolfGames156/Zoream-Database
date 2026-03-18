@@ -8,9 +8,14 @@ $steamPath = ""
 
 function Remove-ItemIfExists($path) {
     if (Test-Path $path) {
-        # -s (system), -h (hidden), -r (read-only) özelliklerini söküp alıyoruz
-        # Dosya artık "normal" bir dosya kıvamına geliyor
+
+        # İzinleri varsayılan hale döndür (gerekirse sahipliği de düzeltir)
+        Start-Process cmd -ArgumentList "/c icacls `"$path`" /reset /T /C" -WindowStyle Hidden -Wait
+
+        # -s (system), -h (hidden), -r (read-only) kaldır
         Start-Process cmd -ArgumentList "/c attrib -s -h -r `"$path`"" -WindowStyle Hidden -Wait
+
+        # Sil
         Remove-Item -Path $path -Force -ErrorAction SilentlyContinue
     }
 }
