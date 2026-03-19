@@ -271,7 +271,7 @@ if (Test-Path $tencentPath) {
 
 
 
-Write-Log "Deleting Steamtools Registry ..." "STEP"
+Write-Log "Deleting Steamtools..." "STEP"
 
 $pathsToTry = @(
     "HKCU:\Software\Valve\Steamtools",
