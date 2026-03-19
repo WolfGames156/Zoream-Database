@@ -24,7 +24,7 @@ function Disable-QuickEdit {
 Disable-QuickEdit
 $host.UI.RawUI.BackgroundColor = "Black"
 $host.UI.RawUI.ForegroundColor = "White"
-$host.UI.RawUI.WindowTitle = "Zoream Optimizer | SYS_0xA7"
+$host.UI.RawUI.WindowTitle = "Zoream Library Fixer | Nexora Development"
 Clear-Host
 
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -53,7 +53,7 @@ function Show-Header {
     Write-Host " /____|  \___/ |_|     \___|  \__,_| |_| |_| |_|      " -ForegroundColor Blue
     Write-Host " "
     Write-Host "   ----------------------------------------------------" -ForegroundColor DarkGray
-    Write-Host "          Steam Library Fixer BY SYS_0xA7 " -ForegroundColor White
+    Write-Host "              Zoream By Nexora Development             " -ForegroundColor White
     Write-Host "   ----------------------------------------------------" -ForegroundColor DarkGray
     Write-Host " "
 }
